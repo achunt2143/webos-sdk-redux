@@ -1,0 +1,36 @@
+# /etc/event.d/novacom-wifi-fw
+#
+# Device-side upstart job: open the novacom ports to the LAN so novacom works
+# over Wi-Fi. Install on the DEVICE, not the host.
+#
+# webOS runs an iptables firewall whose INPUT policy is DROP on the Wi-Fi
+# interface, so `novacomd -b` listening on 0.0.0.0 is not sufficient on its own
+# -- the packets are dropped before they ever reach it. The symptom is a device
+# that pings fine while every novacom port refuses connections.
+#
+# THE DELAY IS LOAD-BEARING. The platform's own firewall setup runs during boot
+# and flushes the INPUT chain; a rule inserted earlier is silently wiped. 60s is
+# comfortably after it has settled. If you shorten this, verify with
+# `iptables -L INPUT -n` a few minutes after boot, not a few seconds.
+#
+# EDIT THE SOURCE RANGE BELOW to match your LAN. Network novacom is an
+# UNAUTHENTICATED ROOT SHELL -- scope it to a trusted network, or to the single
+# host you develop from (`-s 192.168.1.10` rather than a whole /24).
+#
+# Install:
+#   mount -o remount,rw /
+#   cp novacom-wifi-fw /etc/event.d/novacom-wifi-fw
+#   chmod 755 /etc/event.d/novacom-wifi-fw
+#   sync
+#   # then reboot -- do NOT kill novacomd to restart it, see NOVACOM-TCP.md
+#
+# Never leave a backup copy inside /etc/event.d/: upstart treats every file in
+# that directory as a job, and a stale copy races the real one at boot.
+
+start on started novacomd
+
+script
+    sleep 60
+    /usr/sbin/iptables -I INPUT 1 -i eth0 -s 192.168.1.0/24 \
+        -p tcp --dport 6968:6970 -j ACCEPT
+end script

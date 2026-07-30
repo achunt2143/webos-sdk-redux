@@ -87,8 +87,14 @@ the listening side merely announces itself and serves. Port map
    iptables -I INPUT 1 -i eth0 -s <your-lan>/24 -p tcp --dport 6968:6970 -j ACCEPT
    ```
 
-   For persistence, add an upstart job (e.g. `/etc/event.d/novacom-wifi-fw`)
-   that inserts the rule ~60s after novacomd starts.
+   For persistence, install the ready-made upstart job
+   [`novacom-tcp/novacom-wifi-fw`](novacom-tcp/novacom-wifi-fw) as
+   `/etc/event.d/novacom-wifi-fw` (edit its source range first).
+
+   **The ~60s delay in that job is load-bearing.** The platform's own firewall
+   setup runs during boot and flushes the INPUT chain, so a rule inserted
+   earlier is silently wiped. If you shorten it, verify with
+   `iptables -L INPUT -n` several minutes after boot rather than seconds.
 
 3. Give the device a DHCP reservation so its IP is stable.
 
@@ -108,6 +114,22 @@ ExecStart=
 ExecStart=/usr/local/bin/novacomd -c <device-ip>:6969
 ```
 
+Scripts that write that drop-in and restart the daemon for you are in
+[`novacom-tcp/`](novacom-tcp/):
+
+```sh
+novacom-tcp/start-novacomd-wifi.sh 192.168.1.42   # Wi-Fi device + USB
+novacom-tcp/stop-novacomd-wifi.sh                 # back to USB-only
+```
+
+**Turn the connector off when the device is unreachable.** This is the one
+operational gotcha worth internalising: while the Wi-Fi target is powered
+off, asleep or off-network, novacomd keeps retrying that address and every
+failed connect stalls the daemon. USB access degrades badly — `novacom -d
+usb` calls crawl and large installs over USB time out mid-transfer. It
+presents exactly like a failing cable or a dying device, and it has cost
+real debugging time. `stop-novacomd-wifi.sh` is the fix.
+
 The connector retries every second, so device reboots and Wi-Fi drops
 re-attach automatically. The device shows up as type `emulator` on the
 `tcp` transport (TCP devices share the emulator attach path):
@@ -120,6 +142,35 @@ $ novacom -l
 
 Target it explicitly with `novacom -d tcp …` when USB is also connected;
 with the cable unplugged it's simply the only device.
+
+### Known limitation: the client's direct-dial mode
+
+The `novacom` client can also talk straight to a device's daemon, skipping
+the local novacomd entirely:
+
+```
+novacom -a <device-ip> -p 6968 -l
+```
+
+That **works** — it returns the device list. But the same form with `run`,
+`put` or `get` hangs and then reports `unable to find device`, against a
+device whose ports are open and which the `-c` connector serves happily at
+the same moment. So direct-dial is usable for enumeration only.
+
+We did not chase the cause, because the connector path above does
+everything and the direct path adds nothing once it is set up. Noting it
+so the next person does not spend an afternoon assuming their firewall or
+`-b` setup is wrong when the enumeration half works and the useful half
+does not. If you do dig in, the interesting asymmetry is that the device
+runs a **stock, unpatched** `novacomd-119`: the `-c` arrangement puts the
+patched host daemon on the rx side of the transport, whereas direct-dial
+does not — which would fit, though we have not proven it.
+
+More broadly, this is the shape of the whole feature: the ports, the `-b`
+flag, the `-c` connector and the emulator attach path are all present in
+Palm's code, and it looks like TCP support was built out and never
+finished off. Most of it works once `SO_RCVLOWAT` stops breaking the
+handshake.
 
 ### Security note
 

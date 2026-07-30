@@ -48,3 +48,17 @@ If you want to build webOS applications, you'll need the SDK. You don't strictly
 
 - Ensure you have installed novacomd and novacom
 - Run `./install-<platform>.sh from the `0.2` folder
+## Novacom over Wi-Fi (TCP)
+
+This SDK's novacomd fixes a bug that kept Palm's TCP transport from ever
+completing its handshake on Linux, so a device can attach over Wi-Fi instead of
+USB — handy when the device's only USB port is needed for something else. Every
+tool (`novacom`, `novaterm`, `palm-install`, `palm-log`, …) then works over it
+unchanged.
+
+See [NOVACOM-TCP.md](NOVACOM-TCP.md) for the bug, the fix and the setup, and
+[novacom-tcp/](novacom-tcp/) for ready-made host scripts and the device-side
+firewall job.
+
+Note that network novacom is an unauthenticated root shell — treat a device with
+it enabled as lab equipment on a trusted network.
