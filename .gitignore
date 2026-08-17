@@ -4,4 +4,5 @@ __pycache__/
 novacomd/build-novacomd
 novacom/build-novacom
 installer-package
+novacom-installer-*.pkg
 set-apple-vars.sh
