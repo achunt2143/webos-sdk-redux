@@ -19,7 +19,8 @@ rem ==========================================================================
 setlocal EnableDelayedExpansion
 set "SCRIPT_DIR=%~dp0"
 if "%SCRIPT_DIR:~-1%"=="\" set "SCRIPT_DIR=%SCRIPT_DIR:~0,-1%"
-for %%d in ("%SCRIPT_DIR%\..") do set "REPO_ROOT=%%~fd"
+rem This script lives at the repo root, so the root is simply its own directory.
+set "REPO_ROOT=%SCRIPT_DIR%"
 
 set "SDK_INSTALL_DIR=%ProgramFiles%\PalmSDK"
 set "PDK_INSTALL_DIR=C:\PalmPDK"
@@ -188,7 +189,10 @@ echo.
 if "%DO_NOVACOM%"=="0" (
     echo [SKIP] novacom skipped by request
 ) else (
-    set "MSI=%SCRIPT_DIR%\NovacomInstaller_%ARCH%.msi"
+    rem The MSIs live in windows\; fall back to beside this script in case the
+    rem two have been copied somewhere together.
+    set "MSI=%REPO_ROOT%\windows\NovacomInstaller_%ARCH%.msi"
+    if not exist "!MSI!" set "MSI=%SCRIPT_DIR%\NovacomInstaller_%ARCH%.msi"
     if not exist "!MSI!" (
         echo [WARN] "!MSI!" not found - skipping novacom
         echo        Without it nothing serves 127.0.0.1:6968, so palm-install,

@@ -46,11 +46,13 @@ novacom/                      # novacom client source + build/install scripts
 novacomd/                     # novacomd daemon source + build/install scripts
 novacom-tcp/                  # Wi-Fi novacom helper scripts + device firewall job
 pdk/                          # Native plug-in kit -> /opt/PalmPDK (see below)
-windows/                      # Windows batch installer + HP's novacom MSIs
+windows/                      # HP's novacom MSIs (x86 / x64) -- payload only
 installer-package/            # Staging area for the macOS driver .pkg
 
-install.sh                    # Installs all three parts
-uninstall.sh                  # Removes all three parts
+install.sh                    # Installs all four parts (macOS / Linux)
+uninstall.sh                  # Removes all four parts (macOS / Linux)
+install-windows.bat           # Installs all four parts (Windows, elevated)
+uninstall-windows.bat         # Removes them again (Windows, elevated)
 build-driver-installer-mac.sh # Builds the signed macOS driver .pkg
 patch-webos-tools-version.py  # Re-applies the CE version-detection patch to a jar
 set-apple-vars.sh             # Apple signing/notarization credentials
@@ -164,10 +166,10 @@ identifier) with `com.palm.novacomd` (the launchd daemon label).
 
 ## Windows
 
-`windows/install-windows.bat` (elevated) installs the SDK to
+`install-windows.bat` at the repo root (elevated) installs the SDK to
 `%ProgramFiles%\PalmSDK\<version>` with a `Current` **junction** — `mklink /J`,
 not a symlink, since junctions need no developer mode — the PDK to
-`C:\PalmPDK`, and novacom via HP's MSI. `windows/uninstall-windows.bat` reverses
+`C:\PalmPDK`, and novacom via HP's MSI. `uninstall-windows.bat` reverses
 it, except novacom, which must go through the MSI.
 
 Two things drive the whole design:

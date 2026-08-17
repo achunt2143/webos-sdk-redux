@@ -102,7 +102,6 @@ Windows gets a batch installer rather than a GUI. Run it from an **elevated**
 command prompt:
 
 ```
-cd windows
 install-windows.bat
 ```
 

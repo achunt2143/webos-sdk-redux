@@ -6,8 +6,7 @@ difference: **novacom is not built from source on Windows.** It comes from HP's
 original MSI, which is committed to `windows/`.
 
 ```
-cd windows
-install-windows.bat            :: run from an elevated (Administrator) prompt
+install-windows.bat            :: run from the repo root, elevated (Administrator)
 ```
 
 Options: `/y` (no prompts), `/sdkdir <path>`, `/nopdk`, `/nonovacom`.
@@ -134,7 +133,6 @@ toolchain, nothing more.
 ## Uninstalling
 
 ```
-cd windows
 uninstall-windows.bat
 ```
 
