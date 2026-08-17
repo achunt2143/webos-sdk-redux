@@ -412,7 +412,14 @@ fi
 #   1. Keychain profile (recommended): set NOTARYTOOL_PROFILE to the profile name
 #      Set up once with: xcrun notarytool store-credentials "notarytool" \
 #        --apple-id YOUR_APPLE_ID --team-id YOUR_TEAM_ID --password YOUR_APP_SPECIFIC_PASSWORD
-#   2. Environment variables in set-apple-vars.sh (gitignored): APPLE_ID, APPLE_TEAM_ID, APPLE_APP_PASSWORD
+#   2. Environment variables in set-apple-vars.sh (gitignored):
+#        APPLE_ID, APPLE_TEAM_ID, APPLE_APP_SPECIFIC_PASSWORD
+#      All three must be set. If any is missing, notarization is skipped and the
+#      build still exits 0 -- it reports why, but only when the package was
+#      signed. An unsigned build says nothing about notarization at all.
+#
+# Note the keychain profile is checked FIRST -- if NOTARYTOOL_PROFILE is set,
+# the environment variables below are ignored entirely.
 if [ -f "$SCRIPT_DIR/set-apple-vars.sh" ]; then
     log_info "Loading Apple credentials from set-apple-vars.sh..."
     # shellcheck source=/dev/null
