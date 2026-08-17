@@ -19,17 +19,16 @@ log_error() { echo -e "${RED}[ERROR]${NC} $1"; }
 log_warning() { echo -e "${YELLOW}[WARNING]${NC} $1"; }
 
 # Configuration
-SCRIPT_DIR="$(cd "$(dirname "$0")" && pwd)"
+#
+# pwd -P resolves the physical path, which matters when this script is invoked
+# through the "Current" symlink (./Current/install-sdk-linux.sh). Without it,
+# SDK_SOURCE would be the symlink itself and the "cp -R" below would copy the
+# *link* rather than the tree -- producing a self-referential 0.3 -> ./0.3 in
+# the install dir and still exiting 0. Resolving here also means the version is
+# always read off the real directory name.
+SCRIPT_DIR="$(cd "$(dirname "$0")" && pwd -P)"
 SDK_SOURCE="$SCRIPT_DIR"
-
-# Detect SDK version from directory name
-# If SCRIPT_DIR is a symlink (Current), resolve it to get the real version
-if [ -L "$(dirname "$0")" ]; then
-    SDK_REAL_PATH="$(cd "$(dirname "$0")" && pwd -P)"
-    SDK_VERSION=$(basename "$SDK_REAL_PATH")
-else
-    SDK_VERSION=$(basename "$SCRIPT_DIR")
-fi
+SDK_VERSION=$(basename "$SCRIPT_DIR")
 
 # Check if running as root
 if [ "$EUID" -ne 0 ]; then
@@ -178,6 +177,17 @@ if [ ! -d "$SDK_INSTALL_DIR" ]; then
     log_success "Directory created"
 fi
 
+# Note any previously installed versions. These are left in place rather than
+# removed: Current is about to be repointed at $SDK_VERSION, so an older tree is
+# harmless, and keeping it means a rollback is a single ln -sfn. Removing
+# someone's old SDK without asking would not be.
+PRIOR_VERSIONS=""
+for prior in "$SDK_INSTALL_DIR"/[0-9]*; do
+    if [ -d "$prior" ] && [ "$(basename "$prior")" != "$SDK_VERSION" ]; then
+        PRIOR_VERSIONS="$PRIOR_VERSIONS $(basename "$prior")"
+    fi
+done
+
 # Backup existing installation if present
 if [ -d "$SDK_INSTALL_DIR/$SDK_VERSION" ]; then
     BACKUP="$SDK_INSTALL_DIR/$SDK_VERSION.backup.$(date +%Y%m%d-%H%M%S)"
@@ -208,6 +218,13 @@ fi
 ln -sf "$SDK_INSTALL_DIR/$SDK_VERSION" "$SDK_INSTALL_DIR/Current"
 log_success "Symlink created: $SDK_INSTALL_DIR/Current -> $SDK_INSTALL_DIR/$SDK_VERSION"
 
+if [ -n "$PRIOR_VERSIONS" ]; then
+    log_warning "Older SDK version(s) left in place:$PRIOR_VERSIONS"
+    log_info "Current now points at $SDK_VERSION. To roll back to an older version:"
+    log_info "  sudo ln -sfn $SDK_INSTALL_DIR/<version> $SDK_INSTALL_DIR/Current"
+    log_info "To reclaim the space, remove the old directories under $SDK_INSTALL_DIR"
+fi
+
 # Create bin directory for symlinks if needed
 if [ "$CREATE_SYMLINKS" = true ]; then
     if [ ! -d "$BIN_INSTALL_DIR" ]; then
@@ -237,17 +254,33 @@ if [ "$CREATE_SYMLINKS" = true ]; then
             fi
 
             # Create symlink
-            ln -sf "$SDK_INSTALL_DIR/$SDK_VERSION/bin/$CMD_NAME" "$BIN_INSTALL_DIR/$CMD_NAME"
+            # Create symlink via Current, not the versioned path, so that
+            # switching SDK versions is just a matter of repointing Current
+            ln -sf "$SDK_INSTALL_DIR/Current/bin/$CMD_NAME" "$BIN_INSTALL_DIR/$CMD_NAME"
             SYMLINK_COUNT=$((SYMLINK_COUNT + 1))
         fi
     done
     log_success "Created $SYMLINK_COUNT command symlinks in $BIN_INSTALL_DIR"
 fi
 
-# Set ownership
-log_info "Setting ownership..."
+# Set ownership and permissions
+#
+# The mode normalisation matters as much as the chown. "cp -R" carries the
+# source tree's permissions across, so installing from a working copy that is
+# mode 0700 (a git clone into a private directory, for example) would otherwise
+# produce a root-owned 0700 tree that no ordinary user can traverse -- every
+# palm-* command then fails with "permission denied". Git only tracks the
+# executable bit, so a fresh clone happens to come out 0755 and hides this.
+#
+# u=rwX,go=rX gives 755 for directories and anything already executable, 644
+# for everything else, preserving which files are executable rather than
+# guessing.
+log_info "Setting ownership and permissions..."
 chown -R root:root "$SDK_INSTALL_DIR/$SDK_VERSION"
-log_success "Ownership set"
+chmod -R u=rwX,go=rX "$SDK_INSTALL_DIR/$SDK_VERSION"
+# Belt and braces: these must be executable whatever the source tree looked like
+chmod 755 "$SDK_INSTALL_DIR/$SDK_VERSION/bin"/palm-*
+log_success "Ownership and permissions set"
 
 # Verify installation
 echo ""
