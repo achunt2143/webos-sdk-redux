@@ -70,6 +70,35 @@ SCRIPTS_DIR="$PKG_DIR/scripts"
 
 OUTPUT_PKG="$SCRIPT_DIR/novacom-installer-${ARCH}.pkg"
 
+# Rebuild both binaries from clean, stamped with the package version.
+#
+# This is a release build, so it must not depend on whatever happens to be
+# sitting in the build directories. Two problems it avoids:
+#
+#   1. Identity leakage. The makefiles' default BUILDVERSION is
+#        "..local..$(whoami)@$(hostname)..$(date)"
+#      which bakes the builder's username and machine name into a binary that
+#      gets published. Setting BUILDVERSION replaces that with
+#      "novacomd-<version>". It must be passed through the ENVIRONMENT, not as
+#      "make BUILDVERSION=x": a command-line assignment overrides the makefile's
+#      own quoting of the value and the build fails to compile.
+#
+#   2. Stale stamps. BUILDVERSION is compiled into main.o, which an incremental
+#      build will not recompile if main.c is unchanged -- so the version string
+#      records when main.o was last built, not what is in the binary.
+log_info "Rebuilding novacomd and novacom from clean (version $PKG_VERSION)..."
+for component in novacomd novacom; do
+    [ "$component" = "novacomd" ] && target="host" || target=""
+    if ! ( cd "$SCRIPT_DIR/$component" \
+           && make spotless >/dev/null 2>&1 \
+           && BUILDVERSION="$PKG_VERSION" make $target >/dev/null 2>&1 ); then
+        log_error "Failed to build $component"
+        log_info "Build it manually to see the error: cd $component && make $target"
+        exit 1
+    fi
+    log_success "Built $component"
+done
+
 # Verify binaries exist
 log_info "Checking for required binaries..."
 if [ ! -f "$NOVACOMD_BIN" ]; then
@@ -373,6 +402,21 @@ log_success "Postinstall script created"
 
 # Build the package
 log_info "Building installer package..."
+
+# Echo the version strings actually compiled into the payload. A wrong stamp is
+# then visible in the build log rather than discovered after release, and any
+# "..local..user@host.." here means the BUILDVERSION override above did not take
+# and the package would publish the builder's identity.
+log_info "Payload version strings:"
+for b in "$PAYLOAD_DIR/usr/local/bin/novacomd" "$PAYLOAD_DIR/usr/local/bin/novacom"; do
+    [ -f "$b" ] || continue
+    stamp=$(strings "$b" 2>/dev/null | grep -oE '(novacomd?-[0-9][^ "]*|\.\.local\.\.[^ "]*)' | head -1)
+    printf '    %-10s %s\n' "$(basename "$b")" "${stamp:-<none found>}"
+    case "$stamp" in
+        ..local..*) log_warning "$(basename "$b") carries a local build stamp with user@host" ;;
+    esac
+done
+
 rm -f "$OUTPUT_PKG"
 
 pkgbuild \
