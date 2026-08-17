@@ -4,129 +4,247 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 
 ## Overview
 
-This is the HP webOS SDK version 3.0.5 (build 676), a legacy development kit for creating applications for the HP/Palm webOS platform. The SDK includes frameworks, tools, sample applications, and reference implementations of core webOS applications.
+This is **PalmSDK 0.3 (Redux)** — a modernization of the 2011-era HP webOS SDK
+(3.0.5) and its USB driver stack, so that Palm/HP devices like the Palm Pre and
+HP TouchPad can still be developed against from current macOS and Linux hosts.
 
-## SDK Structure
+It is not just the SDK. The repository combines four pieces that HP shipped
+separately:
+
+- **novacomd** — the daemon that talks to a webOS device over USB (or TCP)
+- **novacom** — the client utility that drives the daemon
+- **the SDK** — the `palm-*` command line tools, frameworks and sample code
+- **the PDK** — headers and ARM device libraries for native plug-in development
+
+Target devices run either the original **HP webOS 3.0.5** or the community
+**webOS CE 3.1.0** update. Both are supported; see "Device version detection"
+below, which is the one place that distinction has bitten us.
+
+## Repository layout
 
 ```
-0.1/                          # SDK version 0.1 (symlinked as Current/)
+0.3/                          # The SDK itself — see "SDK versioning" below
 ├── bin/                      # Command-line tools (palm-* commands)
+├── install-sdk-macos.sh      # SDK-only installers
+├── install-sdk-linux.sh
+├── uninstall-sdk-macos.sh
+├── uninstall-sdk-linux.sh
 └── share/
-    ├── addons/              # Additional libraries and utilities
-    ├── applications/        # Reference application source code
-    │   └── enyo/           # Enyo-based reference apps
-    ├── documentation/       # API and SDK documentation
-    ├── framework/           # Core frameworks
-    │   ├── enyo/           # Enyo 1.0 framework (build 128)
-    │   └── mojo/           # Mojo framework (version 506)
-    ├── jars/               # Java-based webOS tools
-    └── samplecode/         # Example applications
-        ├── enyo/           # Enyo examples and templates
-        └── mojo/           # Mojo examples and samples
+    ├── addons/               # Additional libraries and utilities
+    ├── applications/enyo/    # Reference application source code
+    ├── documentation/        # API and SDK documentation
+    ├── framework/
+    │   ├── enyo/1.0/         # Enyo framework
+    │   └── mojo/506/         # Mojo framework
+    ├── jars/                 # webos-tools.jar, worm.jar
+    └── samplecode/
+        ├── enyo/             # Enyo examples and templates
+        └── mojo/             # Mojo examples and samples
+Current -> ./0.3              # Always points at the current SDK version
+
+novacom/                      # novacom client source + build/install scripts
+novacomd/                     # novacomd daemon source + build/install scripts
+novacom-tcp/                  # Wi-Fi novacom helper scripts + device firewall job
+pdk/                          # Native plug-in kit -> /opt/PalmPDK (see below)
+installer-package/            # Staging area for the macOS driver .pkg
+
+install.sh                    # Installs all three parts
+uninstall.sh                  # Removes all three parts
+build-driver-installer-mac.sh # Builds the signed macOS driver .pkg
+patch-webos-tools-version.py  # Re-applies the CE version-detection patch to a jar
+set-apple-vars.sh             # Apple signing/notarization credentials
 ```
 
-## Development Tools
+### SDK versioning
 
-All webOS command-line tools are located in `0.1/bin/` and follow the `palm-*` naming convention. These are bash scripts that invoke Java tools from `0.1/share/jars/webos-tools.jar`.
+The SDK lives in a **numbered folder that is renamed each release** (`0.2` →
+`0.3` → …), with a `Current` symlink alongside it. The same convention is
+reproduced at install time: `$SDK_INSTALL_DIR/Current -> $SDK_INSTALL_DIR/0.3`.
 
-**Requirements**: Java 1.8 or greater is required to run the SDK tools.
+Because of this, **prefer `Current/` over a hardcoded version number** in
+scripts and docs — e.g. `Current/share/jars/webos-tools.jar`. The installers
+already derive the version from the directory basename (`pwd -P` + `basename`)
+and `install.sh` picks the highest-numbered folder automatically, so a version
+bump is a `git mv` plus a symlink update, not a hunt for string literals.
 
-### Common Commands
+## Building and installing
 
-- `palm-generate` - Generate new app projects from templates
-- `palm-package <app-dir> [service-dir] [package-dir]` - Package applications into .ipk files
-- `palm-install [-r] <package.ipk>` - Install/remove apps on device or emulator (use `-r` to remove)
-- `palm-launch <app-id>` - Launch an installed application
-- `palm-log -f <app-id>` - Follow/tail application logs
-- `palm-run` - Run applications
-- `palm-help` - Display help information
-
-### Packaging Workflow
-
-Standard workflow for building and deploying applications:
+**Requirements**: Java 8 or greater; a C toolchain (`build-essential` /
+Xcode Command Line Tools); libusb (`libusb-dev` on Linux, `libusb-compat` from
+Homebrew on macOS).
 
 ```bash
-# Package the application
+./install.sh                       # everything: novacomd, novacom, SDK, PDK
+```
+
+Or piecemeal — build novacomd first, since novacom installs alongside it:
+
+```bash
+cd novacomd && ./build.sh          # offers to install on success
+cd novacom  && ./build.sh
+cd 0.3      && sudo ./install-sdk-macos.sh    # or install-sdk-linux.sh
+cd pdk      && sudo ./install-pdk.sh          # same script on both platforms
+```
+
+The SDK installer copies the version folder to `$SDK_INSTALL_DIR` (default
+`/opt/PalmSDK`), repoints `Current`, and symlinks the `palm-*` commands into a
+bin directory on PATH. Those symlinks point **through `Current`**, so switching
+SDK versions is just `ln -sfn`, not a reinstall.
+
+## Device version detection (important)
+
+`0.3/share/jars/webos-tools.jar` in this repo is **patched** and is not
+byte-identical to HP's original.
+
+Every `palm-*` tool resolves the device's OS version before doing anything else,
+in `AbstractDeviceConnection.readProductVersion()`. HP's regex required a vendor
+prefix (`^(Palm|HP) webOS\s+…`), but webOS CE reports
+`PRODUCT_VERSION_STRING=webOS CE 3.1.0` — no prefix — so every command against a
+CE device died with `unrecognized device version`. Two regex constants in the
+class file's constant pool were rewritten to accept modern strings.
+
+**If you ever replace `webos-tools.jar` with an upstream copy, the CE bug comes
+back.** Re-apply the patch:
+
+```bash
+./patch-webos-tools-version.py --check    # is this jar patched?
+./patch-webos-tools-version.py            # patch it (idempotent)
+```
+
+The script also patches an already-installed SDK if you pass it a path. See
+[SDK-VERSION-DETECTION.md](SDK-VERSION-DETECTION.md) for the full analysis.
+
+## The PDK
+
+`pdk/` installs to **`/opt/PalmPDK`** — fixed, unversioned, no `Current`
+symlink, unlike the SDK. That path is hardcoded in the PDK's own helper scripts,
+in every sample's build script, in the bundled Xcode project and throughout HP's
+documentation, and it will never change. Do not "improve" this by versioning it.
+
+It ships only the host-agnostic components: `include/` (192 headers, PDL/SDL/
+GLES/OpenAL/...), `device/lib/` (50 unstripped ARM shared objects, the link and
+debug targets), `bin/` (device helper scripts) and `share/` (samples, plus
+on-device gdb and dropbear `.ipk`s).
+
+It deliberately omits `arm-gcc/`, `i686-gcc/`, `host/` and `emulator/` — 283 MB
+of 32-bit Intel Mach-O that cannot run on macOS 10.15+. **There is no compiler in
+this package**; users bring their own ARM toolchain. An earlier release dropped
+the whole PDK on that basis, which was wrong: the symbols are host-agnostic and
+are the part that matters. See [PDK.md](PDK.md).
+
+`install-pdk.sh` copies components individually rather than replacing the
+directory, so a pre-existing full OEM install keeps its toolchains; the
+uninstaller likewise removes only the four components it owns.
+
+## Novacom over TCP
+
+novacomd here also fixes an `SO_RCVLOWAT` bug that prevented Palm's TCP
+transport from completing its handshake on Linux, which makes novacom-over-Wi-Fi
+usable. See [NOVACOM-TCP.md](NOVACOM-TCP.md) and `novacom-tcp/`. Note that
+network novacom is an unauthenticated root shell — trusted networks only.
+
+## macOS driver installer
+
+`build-driver-installer-mac.sh` builds architecture-specific `.pkg` installers
+that bundle the novacom/novacomd binaries with their libusb dependencies, code
+signed with a launchd service integration. See
+[BUILD-DRIVER-INSTALLER-MAC.md](BUILD-DRIVER-INSTALLER-MAC.md).
+
+This package is **drivers only** — it contains no SDK and no `webos-tools.jar`,
+so it does not carry the webOS CE fix. There is no graphical installer for the
+SDK; that is the shell installer described above.
+
+`PKG_VERSION` in the build script tracks the **webOS release** the drivers ship
+alongside (currently `3.1.0`), not the driver source version — the drivers
+themselves work with webOS 1.x/2.x/3.0.5 devices too. Bump it whenever the
+payload changes, even if the OS release has not, since macOS keys package
+upgrade behaviour off it. Do not confuse `com.palm.novacom` (the package
+identifier) with `com.palm.novacomd` (the launchd daemon label).
+
+## SDK command-line tools
+
+All tools live in `Current/bin/` and follow the `palm-*` convention. They are
+thin bash wrappers that `java -jar` the tools jar.
+
+- `palm-generate` — Generate new app projects from templates
+- `palm-package <app-dir> [service-dir] [package-dir]` — Package into an .ipk
+- `palm-install [-r] <package.ipk>` — Install/remove on device (`-r` removes, `-l` lists)
+- `palm-launch <app-id>` — Launch an installed application
+- `palm-log [-f] <app-id>` — Show/follow application logs (`-l` lists apps)
+- `palm-run` — Package, install and launch in one step
+- `palm-help` — Display help information
+
+Most accept `-d <device>` to pick a device (`usb`, `tcp`, or an id from
+`--device-list`) when more than one is attached.
+
+### Packaging workflow
+
+```bash
 palm-package path/to/app-dir
-
-# Remove old version (optional)
-palm-install -r com.example.app
-
-# Install the new package
+palm-install -r com.example.app                 # remove old version (optional)
 palm-install com.example.app_1.0.0_all.ipk
-
-# Launch the application
 palm-launch com.example.app
-
-# Watch logs
 palm-log -f com.example.app
 ```
 
-## macOS Driver Installation
+### Verifying against a device
 
-The repository includes scripts for building macOS installer packages for the novacom/novacomd USB drivers:
+`novacom -l` lists attached devices. To read something off a device directly:
 
-- `build-driver-installer-mac.sh` - Automated build script for creating architecture-specific installer packages (supports both Intel and Apple Silicon)
-- `BUILD-DRIVER-INSTALLER-MAC.md` - Complete guide to building, signing, and distributing the installer packages
+```bash
+novacom -w run file://bin/cat -- /etc/palm-build-info
+```
 
-These tools automate the packaging of novacom/novacomd binaries and their libusb dependencies into a macOS .pkg installer with proper code signing and launchd service integration. See `BUILD-DRIVER-INSTALLER-MAC.md` for detailed build instructions.
+## Application frameworks
 
-## Application Frameworks
+### Enyo (primary for webOS 3.x)
 
-### Enyo Framework (Primary for webOS 3.0)
+Located at `Current/share/framework/enyo/1.0/framework/`. A component-based
+JavaScript framework with a declarative syntax.
 
-Located at: `0.1/share/framework/enyo/1.0/framework/`
-
-Enyo is a component-based JavaScript framework for building webOS applications with a declarative syntax.
-
-**Key Concepts:**
 - Applications use `enyo.kind()` to define UI components
-- Entry point is `index.html` which loads `enyo.js` from the framework
-- `depends.js` file declares JavaScript and CSS dependencies using `enyo.depends()`
-- `appinfo.json` defines app metadata (id, version, title, icon, etc.)
+- Entry point is `index.html`, which loads `enyo.js` from the framework
+- `depends.js` declares JS/CSS dependencies via `enyo.depends()`
+- `appinfo.json` holds app metadata
 - Set `"uiRevision": 2` in appinfo.json for Enyo apps
 
-**Templates available in** `0.1/share/samplecode/enyo/templates/`:
-- `SinglePane` - Single view application
-- `MultiPanel` - Multi-panel navigation
-- `SplitView` - Split-pane layout
+Templates in `Current/share/samplecode/enyo/templates/`:
+`SinglePane`, `MultiPanel`, `SplitView`.
 
-### Mojo Framework (Legacy)
+### Mojo (legacy)
 
-Located at: `0.1/share/framework/mojo/506/`
+Located at `Current/share/framework/mojo/506/`. The older framework, retained
+for backward compatibility.
 
-Older framework for webOS applications, still supported for backward compatibility.
-
-## Application Structure
-
-### Standard Enyo Application
+## Application structure
 
 ```
 app-directory/
 ├── appinfo.json          # App metadata and configuration
-├── index.html           # Main HTML entry point
-├── depends.js           # Dependency declarations
-├── icon.png            # App icon
-└── source/             # Application source files
-    ├── App.js          # Main application logic
-    └── App.css         # Application styles
+├── index.html            # Main HTML entry point
+├── depends.js            # Dependency declarations
+├── icon.png              # App icon
+└── source/
+    ├── App.js
+    └── App.css
 ```
 
-### appinfo.json Fields
+### appinfo.json fields
 
-- `id` - Unique reverse-DNS identifier (e.g., "com.palm.app.photos")
-- `version` - Version string
-- `title` - Display name
-- `main` - Entry HTML file (typically "index.html")
-- `type` - Application type ("web" for JavaScript apps)
-- `icon` - Icon filename
-- `uiRevision` - Set to 2 for Enyo apps
-- `vendor` - Publisher name
-- `keywords` - Array of keywords for universal search
+- `id` — Unique reverse-DNS identifier (e.g. `com.palm.app.photos`)
+- `version` — Version string
+- `title` — Display name
+- `main` — Entry HTML file (typically `index.html`)
+- `type` — Application type (`web` for JavaScript apps)
+- `icon` — Icon filename
+- `uiRevision` — Set to 2 for Enyo apps
+- `vendor` — Publisher name
+- `keywords` — Array of keywords for universal search
 
-### Service-Based Applications
+### Service-based applications
 
-Applications can include JavaScript services for background processing. These use a `packageinfo.json` at the package level that references both the app and service directories:
+Applications can include JavaScript services for background processing. These
+use a `packageinfo.json` at the package level referencing both directories:
 
 ```json
 {
@@ -138,66 +256,50 @@ Applications can include JavaScript services for background processing. These us
 }
 ```
 
-Package with: `palm-package app-dir/ service-dir/ package-dir/`
+Package with `palm-package app-dir/ service-dir/ package-dir/`.
 
-## Reference Applications
+## Reference applications
 
-Source code for core webOS applications is available in `0.1/share/applications/enyo/`:
+Source for core webOS apps is in `Current/share/applications/enyo/`:
+`com.palm.app.browser`, `com.palm.app.email`, `com.palm.app.maps`,
+`com.palm.app.messaging`, `com.palm.app.notes`, `com.palm.app.photos`.
 
-- `com.palm.app.browser` - Web browser
-- `com.palm.app.email` - Email client (missing some open source dependencies)
-- `com.palm.app.maps` - Maps application
-- `com.palm.app.messaging` - Messaging/SMS
-- `com.palm.app.notes` - Notes application
-- `com.palm.app.photos` - Photos & Videos app
+**Note**: some have missing open source components — see `readme.txt` in that
+directory.
 
-**Note**: Some applications have missing open source components (see readme.txt in applications directory).
+## Sample applications
 
-## Sample Applications
+- `Current/share/samplecode/enyo/examples/` — HelloWorld, Maps, Layouts, G11n, Theming, …
+- `Current/share/samplecode/enyo/more-examples/` — WebView, Accelerometer, Bluetooth, ZeroConf, …
+- `Current/share/samplecode/enyo/templates/` — project templates
+- `Current/share/samplecode/mojo/` — BasicService, DB8BingPhonebook, SampleCalendarSync,
+  AccountApp, ActivityManager, BluetoothSPPGPS, ZeroConf, and many more
 
-### Enyo Samples (`0.1/share/samplecode/enyo/`)
+## Key architectural concepts
 
-- `examples/` - Basic examples (HelloWorld, Maps, Layouts, G11n, Theming, etc.)
-- `more-examples/` - Advanced examples (WebView, Accelerometer, Bluetooth, ZeroConf, etc.)
-- `templates/` - Project templates for new applications
+### webOS services
 
-### Mojo Samples (`0.1/share/samplecode/mojo/`)
+Applications talk to system services over the `palm://` URL scheme: DB8 database
+operations, Bluetooth, GPS/location, calendar and contact syncing, account
+management, and background activities.
 
-Extensive collection including:
-- `BasicService` - JavaScript services example
-- `DB8BingPhonebook` - DB8 database usage
-- `SampleCalendarSync` - Synergy/sync service example
-- `AccountApp` - Account integration
-- `ActivityManager` - Background activities
-- `BluetoothSPPGPS` - Bluetooth Serial Port Profile
-- `ZeroConf` - Network service discovery
-- And many more...
+### Enyo component model
 
-## Key Architectural Concepts
+UI is built from `enyo.kind()` definitions inheriting from base kinds such as
+`enyo.Control`, `enyo.VFlexBox` and `enyo.HFlexBox`.
 
-### webOS Services
+### Dependency management
 
-Applications communicate with system services using the palm:// URL scheme. Services handle system integration like:
-- DB8 database operations
-- Bluetooth connectivity
-- GPS/location services
-- Calendar and contact syncing
-- Account management
-- Background activities
+`depends.js` uses `enyo.depends()` to list the JS and CSS files to load — the
+standard way to declare dependencies in an Enyo app.
 
-### Enyo Component Model
+## Version information
 
-Enyo uses a declarative component system where UI is built from `enyo.kind()` definitions that inherit from base kinds like `enyo.Control`, `enyo.VFlexBox`, `enyo.HFlexBox`, etc.
-
-### Dependency Management
-
-The `depends.js` file uses `enyo.depends()` to list JavaScript and CSS files that should be loaded. This is the standard way to declare application dependencies in Enyo apps.
-
-## Version Information
-
-- SDK Version: 3.0.5 (Build 676)
-- Enyo Framework: 1.0 (Build 128)
-- Mojo Framework: Version 506
-- SDK Tools: Version 38
-- Novacom: Version 80
-- PDK (Native Plugin Development Kit): Version 138
+- PalmSDK Redux: 0.3
+- SDK tools: 3.0.5b38 (`palm-install --version`)
+- Enyo framework: 1.0
+- Mojo framework: 506
+- PDK: symbols only, from the OEM 3.0.5.676 `palmpdk.pkg` (no toolchains)
+- novacom / novacomd: built from source in this repo; `novacom -V` reports a
+  local build stamp rather than HP's original version number
+- Supported device OS: HP webOS 3.0.5 and webOS CE 3.1.0
