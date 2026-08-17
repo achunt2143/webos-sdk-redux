@@ -31,7 +31,7 @@ This guide explains how to build the novacom/novacomd installer package on any M
 Simply run the build script:
 
 ```bash
-./build-installer.sh
+./build-driver-installer-mac.sh
 ```
 
 The script will:
@@ -111,14 +111,14 @@ otool -L installer-package/payload/usr/local/bin/novacomd
 ### On Apple Silicon Mac
 
 ```bash
-./build-installer.sh
+./build-driver-installer-mac.sh
 # Creates: novacom-installer-arm64.pkg
 ```
 
 ### On Intel Mac
 
 ```bash
-./build-installer.sh
+./build-driver-installer-mac.sh
 # Creates: novacom-installer-x86_64.pkg
 ```
 
@@ -198,22 +198,39 @@ cd novacomd && ./build.sh clean && ./build.sh && cd ..
 cd novacom && ./build.sh clean && ./build.sh && cd ..
 
 # Rebuild package
-./build-installer.sh
+./build-driver-installer-mac.sh
 ```
 
 ## Advanced: Customization
 
-To customize the installer, edit these sections in `build-installer.sh`:
+To customize the installer, edit these sections in `build-driver-installer-mac.sh`:
 
-### Change package identifier
+### Change package identifier or version
+
+Both live in the configuration block near the top of the script, and are passed
+through to `pkgbuild`:
+
 ```bash
---identifier "com.palm.novacom"
+PKG_IDENTIFIER="com.palm.novacom"
+PKG_VERSION="3.1.0"
 ```
 
-### Change version
+`PKG_VERSION` tracks the webOS release these drivers ship alongside — webOS CE
+3.1.0 — so that "which novacom do I need for CE 3.1.0?" has an obvious answer.
+The drivers themselves are not OS-specific and work with webOS 1.x/2.x/3.0.5
+devices too.
+
+**Bump `PKG_VERSION` whenever the payload changes**, even if the OS release has
+not moved. macOS keys its upgrade behaviour off this value, so shipping two
+different payloads under one version leaves an installed package
+indistinguishable from an older one:
+
 ```bash
---version "1.0.0"
+pkgutil --pkg-info com.palm.novacom
 ```
+
+Note this is distinct from `com.palm.novacomd`, the launchd daemon label used
+for the background service.
 
 ### Change install location
 The binaries install to `/usr/local/bin` and `/usr/local/lib`. To change this, you'll need to modify:
@@ -261,7 +278,7 @@ This is why novacomd was being "instantly killed" on the other Apple Silicon Mac
 
 ## The Solution: Code Signing
 
-The updated `build-installer.sh` script now automatically signs all binaries and libraries after relinking them.
+The updated `build-driver-installer-mac.sh` script now automatically signs all binaries and libraries after relinking them.
 
 ### Ad-hoc Signing (Default)
 
@@ -353,7 +370,7 @@ codesign -dvvv expanded_pkg/Payload
 
 **Who**: Hobbyists, internal company use, small teams
 
-**How**: Just run `./build-installer.sh` (no certificate needed)
+**How**: Just run `./build-driver-installer-mac.sh` (no certificate needed)
 
 **User Experience**:
 1. Install package normally
@@ -373,7 +390,7 @@ codesign -dvvv expanded_pkg/Payload
 **How**:
 1. Get Developer ID from Apple Developer portal
 2. Download and install certificate to Keychain
-3. Run `./build-installer.sh` (auto-detects certificate)
+3. Run `./build-driver-installer-mac.sh` (auto-detects certificate)
 4. Optionally notarize: `xcrun notarytool submit novacom-installer-arm64.pkg`
 
 **User Experience**:
@@ -422,7 +439,7 @@ Should show:
 ### 5. Build Installer
 
 ```bash
-./build-installer.sh
+./build-driver-installer-mac.sh
 ```
 
 Script will automatically detect and use your Developer ID!
@@ -457,7 +474,7 @@ xcrun stapler staple novacom-installer-arm64.pkg
 
 **Cause**: Binaries not signed or signature invalid
 
-**Solution**: Rebuild with updated `build-installer.sh` script
+**Solution**: Rebuild with updated `build-driver-installer-mac.sh` script
 
 ### "Developer ID not found" but I have one
 
@@ -490,7 +507,7 @@ codesign --verify --verbose /usr/local/bin/novacomd
 
 If it fails, rebuild:
 ```bash
-./build-installer.sh
+./build-driver-installer-mac.sh
 ```
 
 ## Best Practices
@@ -503,7 +520,7 @@ If it fails, rebuild:
 6. **Consider Developer ID**: For professional distribution
 7. **Document for users**: Include installation instructions
 
-## What Changed in build-installer.sh
+## What Changed in build-driver-installer-mac.sh
 
 The script now includes:
 
@@ -530,4 +547,4 @@ This ensures all binaries work on any Mac, not just the build machine.
 | **Developer ID** | $99/year | No warnings | Public distribution |
 | **Developer ID + Notarized** | $99/year + time | Seamless | Professional releases |
 
-The updated build script handles all of this automatically - just run `./build-installer.sh` and it will sign with the best available method.
+The updated build script handles all of this automatically - just run `./build-driver-installer-mac.sh` and it will sign with the best available method.

@@ -44,6 +44,18 @@ fi
 log_success "Homebrew found at $BREW_PREFIX"
 
 # Configuration
+
+# Package identity. PKG_VERSION tracks the webOS release these drivers are
+# published alongside (webOS CE 3.1.0), rather than the driver source itself --
+# the community asks "which novacom do I need for CE 3.1.0?", and this makes the
+# answer obvious. Note the drivers are not actually OS-specific: they work with
+# webOS 1.x/2.x/3.0.5 devices too. Bump this whenever the payload changes, even
+# if the OS has not moved -- macOS keys upgrade behaviour off it, and shipping
+# two different payloads under one version makes an installed package
+# indistinguishable from an older one via `pkgutil --pkg-info`.
+PKG_IDENTIFIER="com.palm.novacom"
+PKG_VERSION="3.1.0"
+
 SCRIPT_DIR="$(cd "$(dirname "$0")" && pwd)"
 NOVACOMD_BIN="$SCRIPT_DIR/novacomd/build-novacomd/novacomd"
 NOVACOM_BIN="$SCRIPT_DIR/novacom/build-novacom/novacom"
@@ -366,8 +378,8 @@ rm -f "$OUTPUT_PKG"
 pkgbuild \
     --root "$PAYLOAD_DIR" \
     --scripts "$SCRIPTS_DIR" \
-    --identifier "com.palm.novacom" \
-    --version "1.0.0" \
+    --identifier "$PKG_IDENTIFIER" \
+    --version "$PKG_VERSION" \
     --install-location "/" \
     "$OUTPUT_PKG"
 

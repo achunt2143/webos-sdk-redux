@@ -4,7 +4,8 @@ This package provides a simple, self-contained macOS installer for the novacom c
 
 ## What's Included
 
-The installer package (`novacom-installer.pkg`) contains:
+The installer package (`novacom-installer-arm64.pkg` on Apple Silicon,
+`novacom-installer-x86_64.pkg` on Intel) contains:
 
 - **novacomd** - The daemon that communicates with webOS devices via USB
 - **novacom** - Command-line client for device communication
@@ -32,9 +33,23 @@ All files are installed to `/usr/local/`:
 
 **None!** The installer is completely self-contained and includes all necessary USB libraries. You do not need to install Homebrew or any dependencies.
 
+## This package is the drivers only
+
+This installer provides the *communication layer* — it gets your Mac talking to
+the device, so `novacom` and `novaterm` work. It does **not** include the webOS
+SDK, so it gives you no `palm-install`, `palm-launch`, `palm-log` or `palm-package`.
+
+If you want to build and deploy webOS applications, install the SDK as well —
+see the [main README](README.md). This matters particularly for **webOS CE
+3.1.0** devices: the fix that lets the SDK tools recognize a CE device at all
+lives in the SDK, not in these drivers, so installing only this package will
+still leave `palm-*` commands failing with `unrecognized device version`. See
+[SDK-VERSION-DETECTION.md](SDK-VERSION-DETECTION.md).
+
 ## Installation Steps
 
-1. **Double-click** `novacom-installer.pkg` to run the installer
+1. **Double-click** `novacom-installer-arm64.pkg` (Apple Silicon) or
+   `novacom-installer-x86_64.pkg` (Intel) to run the installer
 
 2. **Follow the installation wizard**
    - You'll need administrator privileges
@@ -270,6 +285,18 @@ For issues with:
 - **webOS devices**: Consult webOS community resources
 
 ## Version History
+
+The package version tracks the webOS release these drivers ship alongside, so
+that "which novacom do I need for webOS CE 3.1.0?" has an obvious answer. The
+drivers are not OS-specific — they work with webOS 1.x, 2.x and 3.0.5 devices
+too.
+
+### 3.1.0
+- Published alongside the webOS CE 3.1.0 community OS release
+- **novacomd TCP transport fix** — removes the `SO_RCVLOWAT` setting that
+  prevented Palm's TCP transport from completing its handshake, making
+  novacom-over-Wi-Fi usable. See [NOVACOM-TCP.md](NOVACOM-TCP.md)
+- Code signing and notarization support for distribution to other Macs
 
 ### 1.0.0
 - Initial release
