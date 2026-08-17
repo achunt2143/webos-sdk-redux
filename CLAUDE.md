@@ -46,6 +46,7 @@ novacom/                      # novacom client source + build/install scripts
 novacomd/                     # novacomd daemon source + build/install scripts
 novacom-tcp/                  # Wi-Fi novacom helper scripts + device firewall job
 pdk/                          # Native plug-in kit -> /opt/PalmPDK (see below)
+windows/                      # Windows batch installer + HP's novacom MSIs
 installer-package/            # Staging area for the macOS driver .pkg
 
 install.sh                    # Installs all three parts
@@ -160,6 +161,36 @@ themselves work with webOS 1.x/2.x/3.0.5 devices too. Bump it whenever the
 payload changes, even if the OS release has not, since macOS keys package
 upgrade behaviour off it. Do not confuse `com.palm.novacom` (the package
 identifier) with `com.palm.novacomd` (the launchd daemon label).
+
+## Windows
+
+`windows/install-windows.bat` (elevated) installs the SDK to
+`%ProgramFiles%\PalmSDK\<version>` with a `Current` **junction** — `mklink /J`,
+not a symlink, since junctions need no developer mode — the PDK to
+`C:\PalmPDK`, and novacom via HP's MSI. `windows/uninstall-windows.bat` reverses
+it, except novacom, which must go through the MSI.
+
+Two things drive the whole design:
+
+- **The Java tools reach the device over TCP `127.0.0.1:6968`** (`Novacom.java`)
+  and never shell out to a `novacom` binary. So the SDK only needs *something*
+  answering that port, and the installer's readiness check probes the port
+  rather than a service name — which is not discoverable anyway, since
+  `novacomd.exe` self-registers via `-i` and the MSI has no `ServiceInstall`
+  table.
+- **novacom cannot be built from source on Windows.** `windows/NovacomInstaller_{x86,x64}.msi`
+  are HP's 2011 originals, committed deliberately. The driver binds Palm's USB
+  IDs to Microsoft's in-box WinUSB (no third-party kernel driver) and is
+  WHQL-signed, but with a SHA-1 catalog that modern Windows may reject. Untested
+  on hardware.
+
+`0.3/bin/palm-*.bat` are the Windows launchers, one per command, sharing
+`palm-common.bat` for Java detection. They were written from the bash scripts
+and the jar's `command.properties`, not extracted from HP's Windows SDK — that
+installer is an InstallShield ISSetupStream archive that neither 7-Zip nor
+unshield can unpack. Batch files are stored **CRLF**; keep them that way.
+
+See [WINDOWS.md](WINDOWS.md).
 
 ## SDK command-line tools
 

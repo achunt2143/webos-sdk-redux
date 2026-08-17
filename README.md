@@ -28,7 +28,7 @@ The easiest, and most common deployment will use all four parts, but you can als
 
 ## Pre-requisites
 
-- This SDK is for modern *nix-based Operating Systems: macOS (Intel or Apple Silicon) or 64-bit Linux. If you have another platform (Windows, OSX or 32-bit Linux), the legacy SDK will likely work for you.
+- This SDK targets macOS (Intel or Apple Silicon) and 64-bit Linux. Windows is supported via a batch installer — see [Windows](#windows) below. On 32-bit Linux or very old OSX, the legacy SDK will likely work for you.
 - You will need some version of Java. This version of the toolchain is very tolerant of different versions of Java, but make sure you have at least Java 8 working!
 - You will need build tools for your platform. On Linux these are installed with your package manager and called `build-essential` or `Development Tools`. On macOS this means XCode Command Line tools and [Homebrew](https://brew.sh/).
 - You will need libusb. On Linux this is `libusb-dev` or `libusb-devel`. On macOS, this is `libusb-compat` from Homebrew.
@@ -95,6 +95,31 @@ run on macOS 10.15 or later. Bring your own ARM toolchain and point it at
 Earlier releases dropped the PDK entirely on the grounds that none of it ran on
 a modern Mac. That was true of the compilers and false of everything else — see
 [PDK.md](PDK.md).
+
+## Windows
+
+Windows gets a batch installer rather than a GUI. Run it from an **elevated**
+command prompt:
+
+```
+cd windows
+install-windows.bat
+```
+
+It installs the SDK to `%ProgramFiles%\PalmSDK` (with the same `Current`
+junction convention), puts the `palm-*` commands on the system PATH, installs
+the PDK to `C:\PalmPDK`, and runs HP's novacom MSI for the USB driver and
+`novacomd`. Options: `/y`, `/sdkdir <path>`, `/nopdk`, `/nonovacom`.
+
+The one thing that cannot be built from source here is the driver — Windows
+needs HP's original `NovacomInstaller_{x86,x64}.msi`, which is committed under
+`windows/`. It binds the device to Microsoft's in-box WinUSB rather than
+shipping its own kernel driver, and its catalog is WHQL-signed by Microsoft, but
+with a **SHA-1 digest from 2011** that modern Windows may reject. That is
+untested on real hardware. If it fails, the SDK still installs and works — you
+just won't be able to reach a device.
+
+See [WINDOWS.md](WINDOWS.md) for the details.
 
 ## webOS CE support
 
