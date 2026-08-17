@@ -1,0 +1,14 @@
+To build for desktop emulation, use the buildit_for_host.sh script.
+
+To build for device, you can use packageit.sh with the option "pre",
+"pixi", or "emulator".  For the "simple" example, The emulator build
+will not complete because we don't ship OpenGL ES libraries for the HP
+webOS emulator, but it's there to show an example of how to use the
+i686-linux tools.
+
+The "pre" target will run on all webOS devices but the original Palm
+Pixi.  The Pixi shipped with an older ARMv6 core, while the Palm Pre
+and all newer devices ship with at least an ARMv7 core with NEON
+instructions.  Code built for the Pixi will run on the Pre, but
+without as many optimizations.
+
