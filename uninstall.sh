@@ -60,6 +60,7 @@ log_warning "This will uninstall all webOS SDK Redux components:"
 echo "  - SDK (webOS development tools)"
 echo "  - novacom (device communication client)"
 echo "  - novacomd (device communication daemon)"
+echo "  - PDK (native plug-in headers and device libraries)"
 echo ""
 read -p "Continue with uninstallation? [y/N]: " confirm
 if [[ ! $confirm =~ ^[Yy]$ ]]; then
@@ -69,10 +70,10 @@ fi
 
 # Uninstall SDK
 echo ""
-log_step "1/3 - Uninstalling SDK..."
+log_step "1/4 - Uninstalling SDK..."
 echo ""
 
-# Find the highest numeric version folder (e.g., 0.2, 0.3, etc.)
+# Find the highest numeric version folder (e.g., 0.3, 0.4, etc.)
 SDK_VERSION_DIR=""
 SDK_VERSION_NUM=""
 for dir in "$SCRIPT_DIR"/[0-9]*; do
@@ -87,7 +88,7 @@ for dir in "$SCRIPT_DIR"/[0-9]*; do
 done
 
 if [ -z "$SDK_VERSION_DIR" ]; then
-    log_warning "No SDK version directory found (looking for numeric directories like 0.2)"
+    log_warning "No SDK version directory found (looking for numeric directories like 0.3)"
     log_info "Skipping SDK uninstallation"
 else
     log_info "Found SDK version: $SDK_VERSION_NUM"
@@ -106,7 +107,7 @@ fi
 
 # Uninstall novacom
 echo ""
-log_step "2/3 - Uninstalling novacom..."
+log_step "2/4 - Uninstalling novacom..."
 echo ""
 cd "$SCRIPT_DIR/novacom"
 if [ ! -f "uninstall-$PLATFORM.sh" ]; then
@@ -122,7 +123,7 @@ fi
 
 # Uninstall novacomd
 echo ""
-log_step "3/3 - Uninstalling novacomd..."
+log_step "3/4 - Uninstalling novacomd..."
 echo ""
 cd "$SCRIPT_DIR/novacomd"
 if [ ! -f "uninstall-$PLATFORM.sh" ]; then
@@ -148,6 +149,22 @@ else
         log_success "novacomd uninstalled"
     else
         log_warning "novacomd uninstallation failed or was cancelled"
+    fi
+fi
+
+# Uninstall PDK
+echo ""
+log_step "4/4 - Uninstalling PDK..."
+echo ""
+if [ ! -f "$SCRIPT_DIR/pdk/uninstall-pdk.sh" ]; then
+    log_warning "PDK uninstaller not found: pdk/uninstall-pdk.sh"
+    log_info "Skipping PDK uninstallation"
+else
+    cd "$SCRIPT_DIR/pdk"
+    if ./uninstall-pdk.sh; then
+        log_success "PDK uninstalled"
+    else
+        log_warning "PDK uninstallation failed or was cancelled"
     fi
 fi
 

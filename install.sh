@@ -71,7 +71,7 @@ log_info "Installation directory: $SCRIPT_DIR"
 echo ""
 
 # Check Java requirement
-log_step "1/4 - Checking prerequisites..."
+log_step "1/5 - Checking prerequisites..."
 echo ""
 log_info "Checking Java requirement..."
 if ! command -v java >/dev/null 2>&1; then
@@ -242,11 +242,21 @@ fi
 
 # Build novacomd
 echo ""
-log_step "2/4 - Building components..."
+log_step "2/5 - Building components..."
 echo ""
 log_info "Building novacomd..."
 log_info "(Some warnings are normal and safe to ignore if the build succeeds)"
 cd "$SCRIPT_DIR/novacomd"
+# Always build from clean.
+#
+# The compiler writes .d dependency files recording ABSOLUTE paths to system
+# headers. If the build directory came from another machine -- or from before a
+# toolchain upgrade on this one -- those paths no longer exist and make dies
+# with "No rule to make target '/.../stdlib.h'" before compiling anything. The
+# build directories are gitignored, so this only bites when the tree is copied
+# rather than cloned, which is exactly what people do across dev machines.
+# A full rebuild takes seconds, so there is no reason to be clever here.
+make spotless >/dev/null 2>&1 || make clean >/dev/null 2>&1 || true
 if ! make host; then
     log_error "Failed to build novacomd"
     exit 1
@@ -258,6 +268,8 @@ echo ""
 log_info "Building novacom..."
 log_info "(Some warnings are normal and safe to ignore if the build succeeds)"
 cd "$SCRIPT_DIR/novacom"
+# See the note above novacomd's "make clean" -- same reasoning.
+make spotless >/dev/null 2>&1 || make clean >/dev/null 2>&1 || true
 if ! make; then
     log_error "Failed to build novacom"
     exit 1
@@ -266,7 +278,7 @@ log_success "novacom built successfully"
 
 # Install novacomd
 echo ""
-log_step "3/4 - Installing novacomd..."
+log_step "3/5 - Installing novacomd..."
 echo ""
 cd "$SCRIPT_DIR/novacomd"
 if [ ! -f "install-$PLATFORM.sh" ]; then
@@ -298,10 +310,10 @@ log_success "novacom installed"
 
 # Install SDK
 echo ""
-log_step "4/4 - Installing SDK..."
+log_step "4/5 - Installing SDK..."
 echo ""
 
-# Find the highest numeric version folder (e.g., 0.2, 0.3, etc.)
+# Find the highest numeric version folder (e.g., 0.3, 0.4, etc.)
 SDK_VERSION_DIR=""
 SDK_VERSION_NUM=""
 for dir in "$SCRIPT_DIR"/[0-9]*; do
@@ -316,7 +328,7 @@ for dir in "$SCRIPT_DIR"/[0-9]*; do
 done
 
 if [ -z "$SDK_VERSION_DIR" ]; then
-    log_error "No SDK version directory found (looking for numeric directories like 0.2)"
+    log_error "No SDK version directory found (looking for numeric directories like 0.3)"
     exit 1
 fi
 
@@ -334,6 +346,31 @@ if ! ./install-sdk-$PLATFORM.sh; then
 fi
 log_success "SDK installed"
 
+# Install PDK
+#
+# Optional: the PDK is only needed for native (C/C++) plug-in development, so a
+# failure here is a warning rather than a fatal error -- the SDK above is
+# already installed and usable for JavaScript apps.
+echo ""
+log_step "5/5 - Installing PDK..."
+echo ""
+
+if [ ! -f "$SCRIPT_DIR/pdk/install-pdk.sh" ]; then
+    log_warning "PDK installer not found: pdk/install-pdk.sh"
+    log_info "Skipping PDK installation"
+    PDK_INSTALLED=false
+else
+    cd "$SCRIPT_DIR/pdk"
+    if ./install-pdk.sh; then
+        log_success "PDK installed"
+        PDK_INSTALLED=true
+    else
+        log_warning "PDK installation failed - continuing without it"
+        log_info "Native plug-in development will be unavailable"
+        PDK_INSTALLED=false
+    fi
+fi
+
 # Installation complete
 echo ""
 echo "=========================================="
@@ -344,6 +381,11 @@ log_info "All components have been installed:"
 echo "  ✓ novacomd - Device communication daemon"
 echo "  ✓ novacom  - Device communication client"
 echo "  ✓ SDK      - webOS development tools"
+if [ "$PDK_INSTALLED" = true ]; then
+    echo "  ✓ PDK      - Native plug-in headers and device libraries (/opt/PalmPDK)"
+else
+    echo "  ✗ PDK      - Not installed (native plug-in development unavailable)"
+fi
 echo ""
 log_info "Next steps:"
 echo ""
