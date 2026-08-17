@@ -1,7 +1,7 @@
 #!/bin/bash
 #
 # Master installation script for webOS SDK Redux
-# Builds and installs novacomd, novacom, and the SDK
+# Builds and installs novacomd, novacom, the SDK and the PDK
 #
 
 set -e

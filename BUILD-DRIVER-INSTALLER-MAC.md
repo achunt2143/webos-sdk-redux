@@ -4,7 +4,7 @@ This guide explains how to build the novacom/novacomd installer package on any M
 
 ## Important: Code Signing
 
-**The build script automatically signs all binaries and libraries.** This fixes the issue where novacomd would be "instantly killed" when installed on other Macs. See [SIGNING-AND-DISTRIBUTION.md](SIGNING-AND-DISTRIBUTION.md) for detailed information about code signing.
+**The build script automatically signs all binaries and libraries.** This fixes the issue where novacomd would be "instantly killed" when installed on other Macs. See [Code Signing and Distribution](#code-signing-and-distribution-guide) at the end of this document for details.
 
 ## Prerequisites
 

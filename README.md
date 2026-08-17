@@ -120,6 +120,28 @@ just won't be able to reach a device.
 
 See [WINDOWS.md](WINDOWS.md) for the details.
 
+## macOS driver installer (.pkg)
+
+For distributing the drivers to people who won't build from source, there's a
+signed, notarized macOS installer package containing novacomd, novacom, novaterm
+and their libusb dependencies:
+
+```bash
+./build-driver-installer-mac.sh     # produces novacom-installer-<arch>.pkg
+```
+
+It builds both binaries from clean, stamped with the package version, and prints
+the version strings it packaged so a stale or misattributed build is visible in
+the log. Signing and notarization need your Apple credentials in
+`set-apple-vars.sh` (gitignored).
+
+Note this package is **drivers only** — it contains no SDK and no PDK, so it is
+not a substitute for `install.sh`.
+
+See [DRIVER-INSTALLER-MAC-README.md](DRIVER-INSTALLER-MAC-README.md) for what it
+installs and [BUILD-DRIVER-INSTALLER-MAC.md](BUILD-DRIVER-INSTALLER-MAC.md) for
+building, signing and notarizing it.
+
 ## webOS CE support
 
 The stock SDK tools only recognize devices whose `PRODUCT_VERSION_STRING` starts

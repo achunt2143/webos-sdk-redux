@@ -1,7 +1,7 @@
 #!/bin/bash
 #
 # Master uninstallation script for webOS SDK Redux
-# Uninstalls the SDK, novacom, and novacomd
+# Uninstalls the SDK, PDK, novacom and novacomd
 #
 
 set -e
