@@ -120,15 +120,21 @@ install-windows.bat
 It installs the SDK to `%ProgramFiles%\PalmSDK` (with the same `Current`
 junction convention), puts the `palm-*` commands on the system PATH, installs
 the PDK to `C:\PalmPDK`, and runs HP's novacom MSI for the USB driver and
-`novacomd`. Options: `/y`, `/sdkdir <path>`, `/nopdk`, `/nonovacom`.
+`novacomd`. Options: `/y`, `/sdkdir <path>`, `/nopdk`, `/nonovacom`,
+`/hpnovacomd`.
+
+novacomd itself builds from source on Windows too, with MSYS2's MinGW-w64 (see
+[novacomd/README.md](novacomd/README.md)). Build it before running the
+installer and the installer puts it in place of HP's 2011 daemon, which brings
+the TCP fix and Lunacy devices to Windows; otherwise HP's is kept.
 
 The one thing that cannot be built from source here is the driver — Windows
 needs HP's original `NovacomInstaller_{x86,x64}.msi`, which is committed under
 `windows/`. It binds the device to Microsoft's in-box WinUSB rather than
-shipping its own kernel driver, and its catalog is WHQL-signed by Microsoft, but
-with a **SHA-1 digest from 2011** that modern Windows may reject. That is
-untested on real hardware. If it fails, the SDK still installs and works — you
-just won't be able to reach a device.
+shipping its own kernel driver, and its catalog is WHQL-signed by Microsoft
+with a **SHA-1 digest from 2011**. Windows 11 still loads it — an
+already-installed copy binds an HP TouchPad and works — though installing it
+fresh from the MSI on Windows 11 has not been tried.
 
 See [WINDOWS.md](WINDOWS.md) for the details.
 

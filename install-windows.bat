@@ -4,14 +4,16 @@ rem  webOS SDK Redux - Windows installer
 rem
 rem  Installs three things:
 rem    * the SDK        -> %ProgramFiles%\PalmSDK\<version>, with a Current junction
-rem    * novacom        -> via HP's NovacomInstaller MSI (WinUSB driver + novacomd)
+rem    * novacom        -> via HP's NovacomInstaller MSI (WinUSB driver + novacomd),
+rem                        then this repo's novacomd in place of HP's, if built
 rem    * the PDK        -> C:\PalmPDK
 rem
-rem  Usage:  install-windows.bat [/y] [/sdkdir <path>] [/nopdk] [/nonovacom]
+rem  Usage:  install-windows.bat [/y] [/sdkdir <path>] [/nopdk] [/nonovacom] [/hpnovacomd]
 rem            /y          do not prompt for confirmation
 rem            /sdkdir     override the SDK install directory
 rem            /nopdk      skip the PDK
-rem            /nonovacom  skip the novacom MSI
+rem            /nonovacom  skip the novacom MSI (and novacomd)
+rem            /hpnovacomd keep HP's 2011 novacomd even if this repo's is built
 rem
 rem  Must be run from an elevated (Administrator) command prompt.
 rem ==========================================================================
@@ -27,12 +29,16 @@ set "PDK_INSTALL_DIR=C:\PalmPDK"
 set "ASSUME_YES=0"
 set "DO_PDK=1"
 set "DO_NOVACOM=1"
+set "DO_REDUX_NOVACOMD=1"
+rem Built by novacomd\build.sh from an MSYS2 UCRT64 shell; see WINDOWS.md.
+set "REDUX_NOVACOMD=%REPO_ROOT%\novacomd\build-novacomd\novacomd.exe"
 
 :parseargs
 if "%~1"=="" goto argsdone
 if /i "%~1"=="/y"         ( set "ASSUME_YES=1"        & shift & goto parseargs )
 if /i "%~1"=="/nopdk"     ( set "DO_PDK=0"            & shift & goto parseargs )
 if /i "%~1"=="/nonovacom" ( set "DO_NOVACOM=0"        & shift & goto parseargs )
+if /i "%~1"=="/hpnovacomd" ( set "DO_REDUX_NOVACOMD=0" & shift & goto parseargs )
 if /i "%~1"=="/sdkdir"    ( set "SDK_INSTALL_DIR=%~2" & shift & shift & goto parseargs )
 echo [ERROR] Unknown option: %~1
 exit /b 1
@@ -134,6 +140,13 @@ echo.
 echo [INFO] SDK      to "%SDK_INSTALL_DIR%\!SDK_VER!"
 if "%DO_PDK%"=="1"     echo [INFO] PDK      to "%PDK_INSTALL_DIR%"
 if "%DO_NOVACOM%"=="1" echo [INFO] novacom  via NovacomInstaller_%ARCH%.msi
+if "%DO_NOVACOM%%DO_REDUX_NOVACOMD%"=="11" (
+    if exist "%REDUX_NOVACOMD%" (
+        echo [INFO] novacomd this repo's build, as the NovacomD service, in place of HP's
+    ) else (
+        echo [INFO] novacomd HP's 2011 build - novacomd\build-novacomd\novacomd.exe is not built
+    )
+)
 echo [INFO] PATH     add "%BIN_DIR%"
 echo.
 if "%ASSUME_YES%"=="0" (
@@ -218,6 +231,18 @@ if "%DO_NOVACOM%"=="0" (
     )
 )
 
+rem This repo's novacomd takes over HP's NovacomD service; the MSI's WinUSB driver
+rem binding stays, since that is what both of them open the device through.
+if "%DO_NOVACOM%%DO_REDUX_NOVACOMD%"=="11" (
+    if exist "%REDUX_NOVACOMD%" (
+        call :install_redux_novacomd
+    ) else (
+        echo [INFO] Keeping HP's 2011 novacomd: novacomd\build-novacomd\novacomd.exe is not built.
+        echo        For this repo's novacomd ^(TCP fix, Lunacy devices^), build it from an
+        echo        MSYS2 UCRT64 shell with novacomd/build.sh and run this again. See WINDOWS.md.
+    )
+)
+
 rem ==========================================================================
 echo.
 echo [STEP] 4/4 - Installing PDK...
@@ -263,3 +288,33 @@ echo          palm-install --version
 echo          palm-install -l
 echo.
 endlocal
+exit /b 0
+
+rem --------------------------------------------------------------------------
+:install_redux_novacomd
+set "NOVACOMD_DIR=%SDK_INSTALL_DIR%\novacomd"
+mkdir "%NOVACOMD_DIR%" 2>nul
+
+rem Remember HP's registration, once, so uninstall-windows.bat can hand the service
+rem back. Skipped when the service already runs ours, from an earlier install.
+set "NOVACOMD_DIR_ENV=%NOVACOMD_DIR%"
+if not exist "%NOVACOMD_DIR%\hp-service.txt" (
+    powershell -NoProfile -ExecutionPolicy Bypass -Command ^
+     "$s=Get-CimInstance Win32_Service | Where-Object Name -eq 'NovacomD'; if($s -and $s.PathName -notlike ('*'+$env:NOVACOMD_DIR_ENV+'*')){ Set-Content -Encoding ASCII -Path (Join-Path $env:NOVACOMD_DIR_ENV 'hp-service.txt') -Value @($s.PathName, $s.Description) }"
+)
+
+rem A running service holds the old copy open.
+net stop NovacomD >nul 2>&1
+copy /y "%REDUX_NOVACOMD%" "%NOVACOMD_DIR%\novacomd.exe" >nul
+if errorlevel 1 (
+    echo [WARN] Could not copy novacomd.exe - restarting HP's novacomd instead
+    net start NovacomD >nul 2>&1
+    exit /b 0
+)
+"%NOVACOMD_DIR%\novacomd.exe" -i
+if errorlevel 1 (
+    echo [WARN] novacomd -i failed - see the message above
+) else (
+    echo [OK]   This repo's novacomd now runs as the NovacomD service
+)
+exit /b 0
