@@ -177,8 +177,7 @@ first and `uninstall-windows.bat` hands the service back to it.
 What it brings over HP's 2011 build:
 
 - **Lunacy devices through adb** ([LUNACY.md](LUNACY.md)), which HP's daemon
-  knows nothing of. It is the same code as on Linux, where it is tested; on
-  Windows it has not been tried with a Lunacy device yet.
+  knows nothing of. Tested on Windows 11; see below.
 - **A daemon that can be built and fixed.** HP's is a closed 32-bit binary that
   needs the VC++ 2005 runtime. This one is 64-bit, built from the same sources
   as macOS and Linux, so their fixes reach Windows too.
@@ -250,6 +249,7 @@ On Windows 11 (build 26200), 2026-10-17 and 18:
 | --- | --- | --- |
 | HP TouchPad (`topaz`) | webOS CE 3.1.0 | `novacom -l`/`run`, 12.8 MB `get`/`put` with matching checksums (5–6 MB/s), 6 concurrent commands, `palm-install --device-list`/`-l`; in a console and as the service; reattach after the daemon is killed |
 | Palm Pre 3 (`roadrunner`) | HP webOS 2.2.4 | through the installed service: `run`, `palm-install -l`, 15 MB `get`/`put` with matching checksums |
+| Lunacy on a Samsung SM-F966U1, over adb | Lunacy 0.8.0 | through the installed service, beside the Pre 3: listed as `adb lunacy` after the USB device, `run`, 12 MB `put`/`get` with matching checksums (0.4 s each way), `palm-install -d lunacy -l`, 3 Lunacy and 3 Pre 3 commands at once |
 
 `install-windows.bat /y` has been run end to end on a machine with an earlier
 install and HP's SDK present: it installed the committed `windows\novacomd.exe`
@@ -266,8 +266,12 @@ against `main` with no regressions; see
 - `novacomd.exe` is unsigned, HP's and this repo's alike. Only the driver
   catalog carries a signature. Antivirus may look twice at a new unsigned exe.
 - The `novacom` client is still HP's 2011 build; only novacomd is built here.
-- Not yet tried with this repo's novacomd on Windows: TCP to a device, Lunacy
-  (needs an Android device), unplugging and replugging while connected, Windows
-  10, and 32-bit Windows (which keeps HP's daemon).
+- Not yet tried with this repo's novacomd on Windows: TCP to a device,
+  unplugging and replugging while connected, Windows 10, and 32-bit Windows
+  (which keeps HP's daemon).
+- Run from a PowerShell background job (`Start-Job`), HP's `novacom.exe` prints
+  `novacomd socket was closed prematurely` after a command's output, which still
+  arrives whole. It doesn't happen from a console or a normal process, so it is
+  the client in that environment, not novacomd.
 - `uninstall-windows.bat` removes all of `%ProgramFiles%\PalmSDK`, older SDK
   versions and backups included. Its full run is untested here for that reason.

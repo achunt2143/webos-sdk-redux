@@ -128,8 +128,8 @@ a prebuilt x64 `windows\novacomd.exe` is committed. You need 64-bit Windows 10
 or 11 and Java 8+. Options: `/y`, `/sdkdir <path>`, `/nopdk`, `/nonovacom`,
 `/hpnovacomd` (keep HP's daemon).
 
-Tested on Windows 11 with an HP TouchPad (webOS CE 3.1.0) and a Palm Pre 3 (HP
-webOS 2.2.4). To build novacomd yourself, MSYS2's MinGW-w64 does it (see
+Tested on Windows 11 with an HP TouchPad (webOS CE 3.1.0), a Palm Pre 3 (HP
+webOS 2.2.4) and Lunacy 0.8.0 over adb. To build novacomd yourself, MSYS2's MinGW-w64 does it (see
 [novacomd/README.md](novacomd/README.md)); the installer prefers your build.
 
 The one thing that cannot be built from source here is the driver — Windows
