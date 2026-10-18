@@ -119,22 +119,24 @@ install-windows.bat
 
 It installs the SDK to `%ProgramFiles%\PalmSDK` (with the same `Current`
 junction convention), puts the `palm-*` commands on the system PATH, installs
-the PDK to `C:\PalmPDK`, and runs HP's novacom MSI for the USB driver and
-`novacomd`. Options: `/y`, `/sdkdir <path>`, `/nopdk`, `/nonovacom`,
-`/hpnovacomd`.
+the PDK to `C:\PalmPDK`, runs HP's novacom MSI for the USB driver, and installs
+this repo's `novacomd` as the `NovacomD` service in place of HP's 2011 daemon.
+That brings the TCP fix and Lunacy devices to Windows. Nothing needs compiling:
+a prebuilt x64 `windows\novacomd.exe` is committed. You need 64-bit Windows 10
+or 11 and Java 8+. Options: `/y`, `/sdkdir <path>`, `/nopdk`, `/nonovacom`,
+`/hpnovacomd` (keep HP's daemon).
 
-novacomd itself builds from source on Windows too, with MSYS2's MinGW-w64 (see
-[novacomd/README.md](novacomd/README.md)). Build it before running the
-installer and the installer puts it in place of HP's 2011 daemon, which brings
-the TCP fix and Lunacy devices to Windows; otherwise HP's is kept.
+Tested on Windows 11 with an HP TouchPad (webOS CE 3.1.0) and a Palm Pre 3 (HP
+webOS 2.2.4). To build novacomd yourself, MSYS2's MinGW-w64 does it (see
+[novacomd/README.md](novacomd/README.md)); the installer prefers your build.
 
 The one thing that cannot be built from source here is the driver — Windows
 needs HP's original `NovacomInstaller_{x86,x64}.msi`, which is committed under
 `windows/`. It binds the device to Microsoft's in-box WinUSB rather than
 shipping its own kernel driver, and its catalog is WHQL-signed by Microsoft
-with a **SHA-1 digest from 2011**. Windows 11 still loads it — an
-already-installed copy binds an HP TouchPad and works — though installing it
-fresh from the MSI on Windows 11 has not been tried.
+with a **SHA-1 digest from 2011**. Windows 11 still loads it and re-running
+the MSI over an existing install works, though installing it on a machine that
+never had it has not been tried on Windows 11.
 
 See [WINDOWS.md](WINDOWS.md) for the details.
 

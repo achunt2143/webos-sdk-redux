@@ -2,25 +2,32 @@
 
 Windows gets a batch installer rather than a GUI. It covers the same three
 pieces the Unix installers do — SDK, novacom, PDK. The USB driver comes from
-HP's original MSI, committed to `windows/`; **novacomd builds from source**, as
-on macOS and Linux (see [novacomd on Windows](#novacomd-on-windows)), and
-replaces HP's 2011 daemon when it has been built. The `novacom` client is still
-HP's.
+HP's original MSI, committed to `windows/`. **novacomd is this repo's own**,
+built from the same sources as macOS and Linux (see
+[novacomd on Windows](#novacomd-on-windows)). A prebuilt
+`windows\novacomd.exe` is committed too, so nothing has to be compiled; it
+replaces HP's 2011 daemon. The `novacom` client is still HP's.
+
+Requirements: 64-bit Windows 10 or 11 and Java 8 or later. Then:
 
 ```
 install-windows.bat            :: run from the repo root, elevated (Administrator)
 ```
 
 Options: `/y` (no prompts), `/sdkdir <path>`, `/nopdk`, `/nonovacom`,
-`/hpnovacomd` (keep HP's daemon even if this repo's is built).
+`/hpnovacomd` (keep HP's daemon instead of this repo's).
 
 | Component | Lands at |
 |---|---|
 | SDK | `%ProgramFiles%\PalmSDK\<version>`, with a `Current` junction |
 | `palm-*` commands | `%ProgramFiles%\PalmSDK\Current\bin`, added to the system PATH |
 | novacom driver, HP's `novacomd.exe` and `novacom.exe` | wherever the MSI puts them |
-| this repo's `novacomd.exe`, if built | `%ProgramFiles%\PalmSDK\novacomd`, as the `NovacomD` service |
+| this repo's `novacomd.exe` (x64 only) | `%ProgramFiles%\PalmSDK\novacomd`, as the `NovacomD` service |
 | PDK | `C:\PalmPDK` |
+
+The installer takes `novacomd.exe` from a local build in
+`novacomd\build-novacomd\` if there is one, and otherwise from `windows\`. On
+32-bit Windows it keeps HP's daemon.
 
 Open a **new** terminal afterwards so the PATH change is visible, then
 `palm-install --version`.
@@ -124,17 +131,37 @@ reach a device, because nothing will be listening on 6968.
 
 ## novacomd on Windows
 
-This repo's novacomd builds for Windows with MSYS2's MinGW-w64, from the same
-sources as macOS and Linux. Install [MSYS2](https://www.msys2.org/)
+You don't need to build it: `windows\novacomd.exe` is committed, and
+`install-windows.bat` installs it. That binary is x64, statically linked (no
+DLLs) and unsigned:
+
+| | |
+| --- | --- |
+| Version (`novacomd -V`) | `novacomd-redux-0.4-75d80d5` |
+| Built from | commit `75d80d5`; novacomd's sources are unchanged since |
+| SHA-256 | `a2a61ae20494e97c2e6ba199766fbaa81d0a169a1c16a6081f01a4ec84520ba8` |
+| Toolchain | MSYS2 UCRT64, gcc 16.2, libusb 1.0 (static) |
+
+To build it yourself, install [MSYS2](https://www.msys2.org/)
 (`winget install MSYS2.MSYS2`), then in the **MSYS2 UCRT64** shell:
 
 ```bash
 cd novacomd && ./build.sh          # installs gcc, make, libusb-1.0 via pacman
 ```
 
-`build-novacomd\novacomd.exe` is statically linked (no DLLs). Run
-`install-windows.bat` afterwards and it takes over the service, or do it by hand
-as Administrator:
+`install-windows.bat` prefers `build-novacomd\novacomd.exe` over the committed
+one when it exists. To refresh the committed binary after changing novacomd
+(the version stamp is set so it doesn't carry your user and host name, and
+`strip` drops the debug info, which holds local paths):
+
+```bash
+make spotless && BUILDVERSION=redux-0.4-$(git rev-parse --short HEAD) make host
+strip -o ../windows/novacomd.exe build-novacomd/novacomd.exe
+sha256sum ../windows/novacomd.exe   # update the table above
+```
+
+The installer takes over the service, or you can do it by hand as
+Administrator:
 
 ```
 novacomd.exe -i      :: register as the NovacomD service and start it
@@ -205,17 +232,32 @@ removing it by hand would leave the Windows installer database inconsistent.
 Uninstall "Palm Novacom" from Settings → Apps, or
 `msiexec /x NovacomInstaller_<arch>.msi`.
 
+## What has been tested
+
+On Windows 11 (build 26200), 2026-10-17 and 18:
+
+| Device | webOS | Tested |
+| --- | --- | --- |
+| HP TouchPad (`topaz`) | webOS CE 3.1.0 | `novacom -l`/`run`, 12.8 MB `get`/`put` with matching checksums (5–6 MB/s), 6 concurrent commands, `palm-install --device-list`/`-l`; in a console and as the service; reattach after the daemon is killed |
+| Palm Pre 3 (`roadrunner`) | HP webOS 2.2.4 | through the installed service: `run`, `palm-install -l`, 15 MB `get`/`put` with matching checksums |
+
+`install-windows.bat /y` has been run end to end on a machine with an earlier
+install and HP's SDK present: it installed the committed `windows\novacomd.exe`
+as the service, which served the device straight away. The service hand-back in
+`uninstall-windows.bat` has been run on its own, and HP's daemon served the
+device after it. On Linux, the port's shared-code changes were A/B tested
+against `main` with no regressions; see
+[WINDOWS-PORT-LINUX-REGRESSION.md](WINDOWS-PORT-LINUX-REGRESSION.md).
+
 ## Known gaps
 
-- A fresh install of the driver from the MSI is untested on Windows 10/11; an
-  existing install works on Windows 11 (see above).
+- A fresh install of the driver from the MSI on a machine that never had it is
+  untested on Windows 10/11. Re-running it over an existing install works.
 - `novacomd.exe` is unsigned, HP's and this repo's alike. Only the driver
-  catalog carries a signature.
+  catalog carries a signature. Antivirus may look twice at a new unsigned exe.
 - The `novacom` client is still HP's 2011 build; only novacomd is built here.
-- This repo's novacomd has been tested on Windows 11 against an HP TouchPad
-  (webOS CE 3.1.0) over USB, both in a console and as the service. Not yet
-  tried: a Pre or other Palm device, TCP to a device, Lunacy (needs an Android
-  device), and unplug/replug while connected.
-- The installer has been syntax- and logic-checked, and its PowerShell fragments
-  were executed directly, but the batch files themselves have not been run
-  end to end on Windows.
+- Not yet tried with this repo's novacomd on Windows: TCP to a device, Lunacy
+  (needs an Android device), unplugging and replugging while connected, Windows
+  10, and 32-bit Windows (which keeps HP's daemon).
+- `uninstall-windows.bat` removes all of `%ProgramFiles%\PalmSDK`, older SDK
+  versions and backups included. Its full run is untested here for that reason.

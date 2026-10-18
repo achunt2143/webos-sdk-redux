@@ -46,7 +46,7 @@ novacom/                      # novacom client source + build/install scripts
 novacomd/                     # novacomd daemon source + build/install scripts
 novacom-tcp/                  # Wi-Fi novacom helper scripts + device firewall job
 pdk/                          # Native plug-in kit -> /opt/PalmPDK (see below)
-windows/                      # HP's novacom MSIs (x86 / x64) -- payload only
+windows/                      # HP's novacom MSIs (x86 / x64) + prebuilt x64 novacomd.exe
 installer-package/            # Staging area for the macOS driver .pkg
 
 install.sh                    # Installs all four parts (macOS / Linux)
@@ -181,11 +181,15 @@ identifier) with `com.palm.novacomd` (the launchd daemon label).
 `install-windows.bat` at the repo root (elevated) installs the SDK to
 `%ProgramFiles%\PalmSDK\<version>` with a `Current` **junction** — `mklink /J`,
 not a symlink, since junctions need no developer mode — the PDK to
-`C:\PalmPDK`, and novacom via HP's MSI. If `novacomd\build-novacomd\novacomd.exe`
-has been built, it then copies it to `%ProgramFiles%\PalmSDK\novacomd` and runs
-`novacomd -i`, which repoints HP's `NovacomD` service at it (HP's path is saved
-first). `uninstall-windows.bat` reverses it, handing the service back to HP's
-novacomd, except novacom, which must go through the MSI.
+`C:\PalmPDK`, and novacom via HP's MSI. It then copies this repo's
+`novacomd.exe` to `%ProgramFiles%\PalmSDK\novacomd` and runs `novacomd -i`, which
+repoints HP's `NovacomD` service at it (HP's path is saved first). The exe is a
+local `novacomd\build-novacomd\` build if present, else the committed
+`windows\novacomd.exe` (x64 only; 32-bit Windows keeps HP's). **Rebuild and
+recommit `windows\novacomd.exe` whenever novacomd's sources change**, with the
+version stamp, `strip` and SHA-256 steps in WINDOWS.md, or the installer ships
+stale code. `uninstall-windows.bat` reverses it, handing the service back to
+HP's novacomd, except novacom, which must go through the MSI.
 
 Two things drive the whole design:
 

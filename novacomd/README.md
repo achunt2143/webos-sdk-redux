@@ -50,6 +50,9 @@ sudo pacman -S base-devel libusb-compat
 
 ### Windows
 
+To just install it, you don't need to build anything: `install-windows.bat` at
+the repo root installs the prebuilt `windows\novacomd.exe`. To build it:
+
 Install [MSYS2](https://www.msys2.org/) (`winget install MSYS2.MSYS2`), open the
 **MSYS2 UCRT64** shell, and run `./build.sh` from this directory; it installs
 the packages itself. By hand:

@@ -13,7 +13,7 @@ rem            /y          do not prompt for confirmation
 rem            /sdkdir     override the SDK install directory
 rem            /nopdk      skip the PDK
 rem            /nonovacom  skip the novacom MSI (and novacomd)
-rem            /hpnovacomd keep HP's 2011 novacomd even if this repo's is built
+rem            /hpnovacomd keep HP's 2011 novacomd instead of this repo's
 rem
 rem  Must be run from an elevated (Administrator) command prompt.
 rem ==========================================================================
@@ -30,8 +30,9 @@ set "ASSUME_YES=0"
 set "DO_PDK=1"
 set "DO_NOVACOM=1"
 set "DO_REDUX_NOVACOMD=1"
-rem Built by novacomd\build.sh from an MSYS2 UCRT64 shell; see WINDOWS.md.
-set "REDUX_NOVACOMD=%REPO_ROOT%\novacomd\build-novacomd\novacomd.exe"
+rem Picked once the architecture is known: see below.
+set "REDUX_NOVACOMD="
+set "REDUX_NOVACOMD_FROM="
 
 :parseargs
 if "%~1"=="" goto argsdone
@@ -65,6 +66,19 @@ set "ARCH=x86"
 if /i "%PROCESSOR_ARCHITECTURE%"=="AMD64" set "ARCH=x64"
 if defined PROCESSOR_ARCHITEW6432 set "ARCH=x64"
 echo [INFO] Architecture: %ARCH%
+
+rem This repo's novacomd: a local build (novacomd\build.sh, MSYS2 UCRT64) wins,
+rem else the prebuilt windows\novacomd.exe. Both are x64 only, so a 32-bit
+rem Windows keeps HP's daemon.
+if "%ARCH%"=="x64" (
+    if exist "%REPO_ROOT%\novacomd\build-novacomd\novacomd.exe" (
+        set "REDUX_NOVACOMD=%REPO_ROOT%\novacomd\build-novacomd\novacomd.exe"
+        set "REDUX_NOVACOMD_FROM=your build in novacomd\build-novacomd"
+    ) else if exist "%REPO_ROOT%\windows\novacomd.exe" (
+        set "REDUX_NOVACOMD=%REPO_ROOT%\windows\novacomd.exe"
+        set "REDUX_NOVACOMD_FROM=the prebuilt windows\novacomd.exe"
+    )
+)
 
 rem ==========================================================================
 echo.
@@ -141,10 +155,10 @@ echo [INFO] SDK      to "%SDK_INSTALL_DIR%\!SDK_VER!"
 if "%DO_PDK%"=="1"     echo [INFO] PDK      to "%PDK_INSTALL_DIR%"
 if "%DO_NOVACOM%"=="1" echo [INFO] novacom  via NovacomInstaller_%ARCH%.msi
 if "%DO_NOVACOM%%DO_REDUX_NOVACOMD%"=="11" (
-    if exist "%REDUX_NOVACOMD%" (
-        echo [INFO] novacomd this repo's build, as the NovacomD service, in place of HP's
+    if defined REDUX_NOVACOMD (
+        echo [INFO] novacomd this repo's, from %REDUX_NOVACOMD_FROM%, as the NovacomD service
     ) else (
-        echo [INFO] novacomd HP's 2011 build - novacomd\build-novacomd\novacomd.exe is not built
+        echo [INFO] novacomd HP's 2011 build - this repo's is x64 only
     )
 )
 echo [INFO] PATH     add "%BIN_DIR%"
@@ -234,12 +248,11 @@ if "%DO_NOVACOM%"=="0" (
 rem This repo's novacomd takes over HP's NovacomD service; the MSI's WinUSB driver
 rem binding stays, since that is what both of them open the device through.
 if "%DO_NOVACOM%%DO_REDUX_NOVACOMD%"=="11" (
-    if exist "%REDUX_NOVACOMD%" (
+    if defined REDUX_NOVACOMD (
+        echo [INFO] Using this repo's novacomd, from %REDUX_NOVACOMD_FROM%
         call :install_redux_novacomd
     ) else (
-        echo [INFO] Keeping HP's 2011 novacomd: novacomd\build-novacomd\novacomd.exe is not built.
-        echo        For this repo's novacomd ^(TCP fix, Lunacy devices^), build it from an
-        echo        MSYS2 UCRT64 shell with novacomd/build.sh and run this again. See WINDOWS.md.
+        echo [INFO] Keeping HP's 2011 novacomd: this repo's novacomd.exe is x64 only.
     )
 )
 
