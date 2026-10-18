@@ -179,6 +179,8 @@ C23. A real Linux link and a device test are still to do.
 
 Building this branch on Linux is also the first real Linux build of the Windows
 port's shared-code changes (`platform_closesocket()` and
-friends, the `#ifdef _WIN32` guards, the libusb-0.1 path in `usb-linux.c`). The
-syntax check passed, but build and smoke-test the USB path on Linux before
-merging.
+friends, the `#ifdef _WIN32` guards, the libusb-0.1 path in `usb-linux.c`). That
+has since been done with `-std=gnu17` against a TouchPad and a Lunacy device,
+with no regressions against `main`. See
+[WINDOWS-PORT-LINUX-REGRESSION.md](WINDOWS-PORT-LINUX-REGRESSION.md). The `bool`
+fix itself still needs the Linux build and smoke test above.
