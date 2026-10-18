@@ -110,14 +110,19 @@ a modern Mac. That was true of the compilers and false of everything else — se
 
 ## Windows
 
-Windows gets a batch installer rather than a GUI. Run it from an **elevated**
+Windows gets a setup wizard: download `webOS-SDK-Redux-<version>-Setup.exe`
+from the releases and run it. It lets you pick components, offers to install
+Java (Eclipse Temurin) if it's missing, and uninstalls from Settings → Apps.
+Build it yourself with `installer-windows\build.ps1` (needs Inno Setup).
+
+For scripting there is also a batch installer. Run it from an **elevated**
 command prompt:
 
 ```
 install-windows.bat
 ```
 
-It installs the SDK to `%ProgramFiles%\PalmSDK` (with the same `Current`
+Either one installs the SDK to `%ProgramFiles%\PalmSDK` (with the same `Current`
 junction convention), puts the `palm-*` commands on the system PATH, installs
 the PDK to `C:\PalmPDK`, runs HP's novacom MSI for the USB driver, and installs
 this repo's `novacomd` as the `NovacomD` service in place of HP's 2011 daemon.

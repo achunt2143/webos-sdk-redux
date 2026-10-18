@@ -48,6 +48,7 @@ novacom-tcp/                  # Wi-Fi novacom helper scripts + device firewall j
 pdk/                          # Native plug-in kit -> /opt/PalmPDK (see below)
 windows/                      # HP's novacom MSIs (x86 / x64) + prebuilt x64 novacomd.exe
 installer-package/            # Staging area for the macOS driver .pkg
+installer-windows/            # Inno Setup script + build.ps1 for the Windows setup wizard
 
 install.sh                    # Installs all four parts (macOS / Linux)
 uninstall.sh                  # Removes all four parts (macOS / Linux)
@@ -190,6 +191,13 @@ recommit `windows\novacomd.exe` whenever novacomd's sources change**, with the
 version stamp, `strip` and SHA-256 steps in WINDOWS.md, or the installer ships
 stale code. `uninstall-windows.bat` reverses it, handing the service back to
 HP's novacomd, except novacom, which must go through the MSI.
+
+`installer-windows/webos-sdk-redux.iss` is the GUI equivalent, built by
+`installer-windows/build.ps1` into `installer-windows/Output/` (not committed;
+publish it as a release asset). It does the same steps from Pascal script, and
+keeps HP's service registration in `HKLM\SOFTWARE\webOS SDK Redux` rather than in
+the install folder. **Keep the two installers doing the same things**: a step
+added to one belongs in the other.
 
 Two things drive the whole design:
 

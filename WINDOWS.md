@@ -1,14 +1,58 @@
 # Windows support
 
-Windows gets a batch installer rather than a GUI. It covers the same three
-pieces the Unix installers do — SDK, novacom, PDK. The USB driver comes from
-HP's original MSI, committed to `windows/`. **novacomd is this repo's own**,
-built from the same sources as macOS and Linux (see
-[novacomd on Windows](#novacomd-on-windows)). A prebuilt
-`windows\novacomd.exe` is committed too, so nothing has to be compiled; it
-replaces HP's 2011 daemon. The `novacom` client is still HP's.
+Windows gets a **setup wizard** (`webOS-SDK-Redux-<version>-Setup.exe`) and,
+for scripting, a batch installer. Both cover the same three pieces the Unix
+installers do — SDK, novacom, PDK. The USB driver comes from HP's original MSI,
+committed to `windows/`. **novacomd is this repo's own**, built from the same
+sources as macOS and Linux (see [novacomd on Windows](#novacomd-on-windows)).
+A prebuilt `windows\novacomd.exe` is committed too, so nothing has to be
+compiled; it replaces HP's 2011 daemon. The `novacom` client is still HP's.
 
-Requirements: 64-bit Windows 10 or 11 and Java 8 or later. Then:
+Requirements: 64-bit Windows 10 or 11. Java 8 or later for the `palm-*` tools;
+the wizard offers to install it.
+
+## The setup wizard
+
+Run `webOS-SDK-Redux-<version>-Setup.exe` and accept the Administrator prompt.
+It asks for an install folder (default `%ProgramFiles%\PalmSDK`) and components:
+
+| Component | Default | |
+|---|---|---|
+| SDK tools, frameworks, `webos-tools.jar` | always | `palm-*` on the system PATH |
+| Documentation, sample code, reference apps | on | about 80 MB of the SDK |
+| PDK | on | `C:\PalmPDK` |
+| Palm USB driver | on | HP's MSI; also puts its `novacom.exe` on the PATH |
+| Device daemon | this repo's novacomd | or HP's 2011 one (no Lunacy) |
+
+If it finds no Java 8 or later, a page links to Eclipse Temurin (OpenJDK) and,
+unless you untick it, downloads the current Temurin 21 JRE from Adoptium and
+installs it with `PATH` and `JAVA_HOME` set. The finish page says what it found:
+Java, the driver, and whether `NovacomD` is running. It adds a Start menu folder
+(an SDK command prompt, the SDK documentation, these notes) and an entry in
+Settings → Apps whose uninstaller hands `NovacomD` back to HP's novacomd before
+removing the files. HP's driver and any Java it installed stay; they have their
+own entries.
+
+HP's service registration is kept in `HKLM\SOFTWARE\webOS SDK Redux`, outside
+the install folder, so nothing that deletes that folder can lose it. The wizard
+also picks up the copy `install-windows.bat` saved, so it can take over from a
+batch install.
+
+Silent installs take Inno Setup's usual switches, for example
+`/SILENT /COMPONENTS="sdk,driver,novacomd\redux"`; `/LOG=<file>` records every step.
+
+To build it (Inno Setup 6.3 or later: `winget install JRSoftware.InnoSetup`):
+
+```
+powershell -ExecutionPolicy Bypass -File installer-windows\build.ps1
+```
+
+It packs the SDK `Current` points at, the PDK, the driver MSI and
+`windows\novacomd.exe` (or `-NovacomdExe <path>`) into
+`installer-windows\Output\`, about 76 MB, and prints its SHA-256. The output is
+not committed; publish it as a release asset.
+
+## The batch installer
 
 ```
 install-windows.bat            :: run from the repo root, elevated (Administrator)
@@ -255,7 +299,21 @@ On Windows 11 (build 26200), 2026-10-17 and 18:
 install and HP's SDK present: it installed the committed `windows\novacomd.exe`
 as the service, which served the device straight away. The service hand-back in
 `uninstall-windows.bat` has been run on its own, and HP's daemon served the
-device after it. On Linux, the port's shared-code changes were A/B tested
+device after it. Codepoet's `uninstall-windows.bat` from the 0.4 release has
+since been run in full here, and removed its install cleanly.
+
+The setup wizard was tested on 2026-10-18 by a silent install of everything,
+after codepoet's install had been removed. It installed 6,834 SDK files (the
+macOS/Linux installer scripts left out), the PDK, the `Current` junction, both
+PATH entries (`palm-install --version` and `novacom` worked from a new prompt),
+the Start menu folder and the Apps entry, and `NovacomD` ran this repo's
+novacomd. Its silent uninstall handed `NovacomD` back to HP's novacomd, which
+started and listened on 6968, and removed the files, the junction, both PATH
+entries, the saved registration and the Apps entry. Not exercised: its wizard
+pages by hand, and the Java download (Java 22 was already installed; the
+Adoptium link it uses was checked to resolve to the Temurin 21 JRE `.msi`).
+
+On Linux, the port's shared-code changes were A/B tested
 against `main` with no regressions; see
 [WINDOWS-PORT-LINUX-REGRESSION.md](WINDOWS-PORT-LINUX-REGRESSION.md).
 
@@ -274,4 +332,7 @@ against `main` with no regressions; see
   arrives whole. It doesn't happen from a console or a normal process, so it is
   the client in that environment, not novacomd.
 - `uninstall-windows.bat` removes all of `%ProgramFiles%\PalmSDK`, older SDK
-  versions and backups included. Its full run is untested here for that reason.
+  versions and backups included. This repo's copy has not been run in full here
+  for that reason; codepoet's, which does the same, has.
+- The setup wizard is unsigned, so SmartScreen warns about an unknown publisher
+  on first run ("More info", then "Run anyway").
