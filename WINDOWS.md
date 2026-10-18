@@ -174,9 +174,19 @@ it repoints HP's existing registration at itself rather than adding a second
 daemon fighting over the same ports. `install-windows.bat` records HP's path
 first and `uninstall-windows.bat` hands the service back to it.
 
-What it brings over HP's 2011 build: the TCP transport fix
-([NOVACOM-TCP.md](NOVACOM-TCP.md)) and Lunacy devices through adb
-([LUNACY.md](LUNACY.md)).
+What it brings over HP's 2011 build:
+
+- **Lunacy devices through adb** ([LUNACY.md](LUNACY.md)), which HP's daemon
+  knows nothing of. It is the same code as on Linux, where it is tested; on
+  Windows it has not been tried with a Lunacy device yet.
+- **A daemon that can be built and fixed.** HP's is a closed 32-bit binary that
+  needs the VC++ 2005 runtime. This one is 64-bit, built from the same sources
+  as macOS and Linux, so their fixes reach Windows too.
+
+It does not bring the TCP fix in [NOVACOM-TCP.md](NOVACOM-TCP.md) to Windows in
+any way that matters. That bug comes from Linux honouring `SO_RCVLOWAT`, and
+Winsock doesn't, so HP's Windows daemon most likely never hung that way. TCP to
+a device is untested on Windows with either daemon.
 
 How the port is put together, for anyone changing it:
 

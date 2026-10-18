@@ -121,7 +121,9 @@ It installs the SDK to `%ProgramFiles%\PalmSDK` (with the same `Current`
 junction convention), puts the `palm-*` commands on the system PATH, installs
 the PDK to `C:\PalmPDK`, runs HP's novacom MSI for the USB driver, and installs
 this repo's `novacomd` as the `NovacomD` service in place of HP's 2011 daemon.
-That brings the TCP fix and Lunacy devices to Windows. Nothing needs compiling:
+That brings Lunacy devices (through adb) to Windows, and replaces HP's closed
+32-bit binary with one built from the same sources as macOS and Linux, so their
+fixes reach Windows too. Nothing needs compiling:
 a prebuilt x64 `windows\novacomd.exe` is committed. You need 64-bit Windows 10
 or 11 and Java 8+. Options: `/y`, `/sdkdir <path>`, `/nopdk`, `/nonovacom`,
 `/hpnovacomd` (keep HP's daemon).
