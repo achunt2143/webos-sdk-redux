@@ -33,6 +33,18 @@ Settings → Apps whose uninstaller hands `NovacomD` back to HP's novacomd befor
 removing the files. HP's driver and any Java it installed stay; they have their
 own entries.
 
+It checks what is already there first, and the Ready page (and the setup log)
+says what it found and what it will do:
+
+| Found | What setup does |
+|---|---|
+| an older webOS SDK Redux | upgrades in the same folder, without asking for one, and removes the old SDK version folder it had installed |
+| the same version | reinstalls (repairs) it with the components chosen |
+| a newer version | asks before replacing it; a silent install refuses (exit code 1) |
+| an `install-windows.bat` install | takes it over, so it uninstalls from Settings → Apps from then on; older version folders and `.backup.` folders are listed and left alone |
+| HP's driver MSI already installed | leaves it as it is rather than re-running it, and says so in the component list |
+| HP's original webOS SDK | leaves it alone, and puts this SDK's `bin` first on the machine PATH, moving it there if it is further down, so its `palm-*` run rather than HP's (whose jar has neither the webOS CE nor the Lunacy fix) |
+
 HP's service registration is kept in `HKLM\SOFTWARE\webOS SDK Redux`, outside
 the install folder, so nothing that deletes that folder can lose it. The wizard
 also picks up the copy `install-windows.bat` saved, so it can take over from a
@@ -309,8 +321,13 @@ PATH entries (`palm-install --version` and `novacom` worked from a new prompt),
 the Start menu folder and the Apps entry, and `NovacomD` ran this repo's
 novacomd. Its silent uninstall handed `NovacomD` back to HP's novacomd, which
 started and listened on 6968, and removed the files, the junction, both PATH
-entries, the saved registration and the Apps entry. Not exercised: its wizard
-pages by hand, and the Java download (Java 22 was already installed; the
+entries, the saved registration and the Apps entry. Its existing-install
+handling was then tested silently: a reinstall (which moved the SDK's `bin` from
+18th to 1st on the PATH), an upgrade from a faked 0.3 (its folder removed), a
+faked newer 0.9 (refused, nothing touched), and a takeover of an
+`install-windows.bat` install, whose uninstall then left only the `.backup.`
+folders and handed `NovacomD` back to HP's novacomd. The wizard has since been
+clicked through by hand. Not exercised: the Java download (Java 22 was already installed; the
 Adoptium link it uses was checked to resolve to the Temurin 21 JRE `.msi`).
 
 On Linux, the port's shared-code changes were A/B tested
